@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>火柴人与线条卡车 - 小朋友动画乐园</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #1a1a2e;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  font-family: 'Comic Sans MS', 'Marker Felt', cursive, sans-serif;
+  overflow: hidden;
+}
+h1 {
+  color: #ffd166;
+  font-size: 28px;
+  margin: 12px 0 6px;
+  text-shadow: 2px 2px 0 #ef476f, 4px 4px 0 rgba(0,0,0,0.2);
+  letter-spacing: 2px;
+}
+canvas {
+  border: 3px solid #ffd166;
+  border-radius: 12px;
+  background: #87CEEB;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(255,209,102,0.3);
+}
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+  justify-content: center;
+  max-width: 800px;
+}
+.controls .group {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  background: rgba(255,255,255,0.08);
+  padding: 6px 12px;
+  border-radius: 20px;
+}
+.controls .label {
+  color: #ffd166;
+  font-size: 14px;
+  margin-right: 4px;
+  white-space: nowrap;
+}
+button {
+  padding: 8px 16px;
+  border: 2px solid #ffd166;
+  border-radius: 20px;
+  background: transparent;
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+button:hover {
+  background: #ffd166;
+  color: #1a1a2e;
+  transform: scale(1.05);
+}
+button.active {
+  background: #ef476f;
+  border-color: #ef476f;
+  color: #fff;
+  transform: scale(1.08);
+}
+.hint {
+  color: rgba(255,255,255,0.5);
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+</style>
+</head>
+<body>
+<h1>🎨 火柴人与线条卡车 🚛</h1>
+<canvas id="canvas" width="800" height="450"></canvas>
+<div class="controls">
+  <div class="group">
+    <span class="label">🧍 火柴人:</span>
+    <button class="stick-btn active" data-action="idle">站着</button>
+    <button class="stick-btn" data-action="walk">走路</button>
+    <button class="stick-btn" data-action="run">跑步</button>
+    <button class="stick-btn" data-action="jump">跳跃</button>
+    <button class="stick-btn" data-action="flip">翻跟头</button>
+    <button class="stick-btn" data-action="dance">跳舞</button>
+    <button class="stick-btn" data-action="wave">挥手</button>
+    <button class="stick-btn" data-action="jumpToTruck">跳上卡车🚛</button>
+    <button class="stick-btn" data-action="getOff">下车👋</button>
+  </div>
+  <div class="group">
+    <span class="label">🚛 卡车:</span>
+    <button class="truck-btn" data-action="stop">停车</button>
+    <button class="truck-btn active" data-action="drive">行驶</button>
+    <button class="truck-btn" data-action="honk">按喇叭</button>
+    <button class="truck-btn" data-action="load">装货</button>
+  </div>
+  <div class="group">
+    <span class="label">🚧 道闸:</span>
+    <button id="barrier-btn" data-barrier="toggle">打开道闸⬆️</button>
+  </div>
+</div>
+<div class="hint">💡 拖拽卡车 | 点击火柴人跳一下 | 道闸关闭时车子会停住，点击「打开道闸」放行！</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width;
+const H = canvas.height;
+
+const GROUND_Y = H - 70;
+const ROAD_Y = GROUND_Y + 5;
+
+let time = 0;
+let stickAction = 'idle';
+let truckAction = 'drive';
+
+const stickman = { x: 200, y: GROUND_Y, vy: 0, rotation: 0, jumpPhase: 0, flipCount: 0 };
+let onTruck = false;
+let jumpToTruckPhase = 0;
+let jumpStartX = 0;
+let jumpStartY = 0;
+const truck = { x: 100, y: ROAD_Y - 35, speed: 1.5, wheelAngle: 0, honkTimer: 0, loadProgress: 0, cargo: [] };
+const barrier = {
+  x: 420,
+  isOpen: false,
+  angle: 0,
+  targetAngle: 0,
+  stoppedTruck: false
+};
+const clouds = [
+  { x: 100, y: 60, w: 80, speed: 0.3 },
+  { x: 350, y: 40, w: 100, speed: 0.2 },
+  { x: 600, y: 70, w: 70, speed: 0.35 },
+  { x: 750, y: 50, w: 90, speed: 0.25 }
+];
+let dragTarget = null;
+let dragOffsetX = 0;
+let dragOffsetY = 0;
+let stickClickBounce = 0;
+
+function jitter(val, amount) {
+  return val + (Math.random() - 0.5) * amount;
+}
+
+function sketchLine(x1, y1, x2, y2, j) {
+  j = j || 1.5;
+  ctx.beginPath();
+  ctx.moveTo(jitter(x1, j), jitter(y1, j));
+  const mx = (x1 + x2) / 2;
+  const my = (y1 + y2) / 2;
+  ctx.quadraticCurveTo(jitter(mx, j * 2), jitter(my, j * 2), jitter(x2, j), jitter(y2, j));
+  ctx.stroke();
+}
+
+function sketchCircle(cx, cy, r, j) {
+  j = j || 1;
+  ctx.beginPath();
+  const steps = 20;
+  for (let i = 0; i <= steps; i++) {
+    const angle = (i / steps) * Math.PI * 2;
+    const px = cx + Math.cos(angle) * r + (Math.random() - 0.5) * j;
+    const py = cy + Math.sin(angle) * r + (Math.random() - 0.5) * j;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.stroke();
+}
+
+function sketchRect(x, y, w, h, j) {
+  j = j || 1.5;
+  sketchLine(x, y, x + w, y, j);
+  sketchLine(x + w, y, x + w, y + h, j);
+  sketchLine(x + w, y + h, x, y + h, j);
+  sketchLine(x, y + h, x, y, j);
+}
+
+function drawCloud(x, y, w) {
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.lineWidth = 2;
+  const h = w * 0.4;
+  sketchCircle(x, y, h * 0.5, 2);
+  sketchCircle(x + w * 0.25, y - h * 0.15, h * 0.6, 2);
+  sketchCircle(x + w * 0.55, y, h * 0.5, 2);
+  sketchCircle(x + w * 0.3, y + h * 0.1, h * 0.4, 2);
+  ctx.restore();
+}
+
+function drawSun() {
+  ctx.save();
+  const sx = 700, sy = 55;
+  ctx.strokeStyle = '#FFD700';
+  ctx.lineWidth = 2.5;
+  sketchCircle(sx, sy, 25, 2);
+  for (let i = 0; i < 12; i++) {
+    const angle = (i / 12) * Math.PI * 2 + time * 0.01;
+    const r1 = 30;
+    const r2 = 40 + Math.sin(time * 0.05 + i) * 5;
+    sketchLine(
+      sx + Math.cos(angle) * r1, sy + Math.sin(angle) * r1,
+      sx + Math.cos(angle) * r2, sy + Math.sin(angle) * r2, 1
+    );
+  }
+  ctx.fillStyle = '#FFD700';
+  ctx.font = '14px cursive';
+  ctx.fillText('☀️', sx - 8, sy + 5);
+  ctx.restore();
+}
+
+function drawGround() {
+  ctx.save();
+  ctx.strokeStyle = '#4a7c59';
+  ctx.lineWidth = 2;
+  sketchLine(0, GROUND_Y, W, GROUND_Y, 1);
+
+  ctx.strokeStyle = '#666';
+  ctx.lineWidth = 3;
+  sketchLine(0, ROAD_Y, W, ROAD_Y, 1);
+  sketchLine(0, ROAD_Y + 40, W, ROAD_Y + 40, 1);
+
+  ctx.strokeStyle = '#FFD700';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([20, 15]);
+  ctx.beginPath();
+  ctx.moveTo(0, ROAD_Y + 20);
+  ctx.lineTo(W, ROAD_Y + 20);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  for (let i = 0; i < 15; i++) {
+    const gx = (i * 60 + time * 0.1) % (W + 30) - 15;
+    const gy = GROUND_Y - 5;
+    ctx.strokeStyle = '#5a9c69';
+    ctx.lineWidth = 1.5;
+    sketchLine(gx, gy, gx - 3, gy - 8 - Math.sin(time * 0.03 + i) * 3, 1);
+    sketchLine(gx, gy, gx + 3, gy - 7 - Math.cos(time * 0.03 + i) * 3, 1);
+  }
+  ctx.restore();
+}
+
+function drawBarrier() {
+  ctx.save();
+  const bx = barrier.x;
+  const by = ROAD_Y;
+
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 3;
+  sketchRect(bx - 5, by - 60, 10, 65, 1.5);
+
+  ctx.fillStyle = 'rgba(255,0,0,0.8)';
+  if (barrier.isOpen) {
+    ctx.fillStyle = 'rgba(0,180,0,0.8)';
+  }
+  sketchCircle(bx, by - 75, 10, 2);
+
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 12px cursive';
+  ctx.textAlign = 'center';
+  ctx.fillText(barrier.isOpen ? '开' : '关', bx, by - 71);
+  ctx.textAlign = 'left';
+
+  const speed = 0.04;
+  if (barrier.angle < barrier.targetAngle) {
+    barrier.angle += speed;
+    if (barrier.angle > barrier.targetAngle) barrier.angle = barrier.targetAngle;
+  } else if (barrier.angle > barrier.targetAngle) {
+    barrier.angle -= speed;
+    if (barrier.angle < barrier.targetAngle) barrier.angle = barrier.targetAngle;
+  }
+
+  ctx.save();
+  ctx.translate(bx, by - 50);
+  ctx.rotate(-barrier.angle);
+
+  ctx.strokeStyle = '#e63946';
+  ctx.lineWidth = 4;
+  sketchLine(0, 0, 90, 0, 2);
+
+  for (let i = 0; i < 6; i++) {
+    const segX = i * 15 + 7;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    sketchLine(segX, -6, segX + 5, 6, 0.8);
+  }
+  ctx.restore();
+
+  ctx.restore();
+}
+
+function drawStickman() {
+  ctx.save();
+  const s = stickman;
+  const t = time;
+  let headX = s.x, headY = s.y - 70;
+  let bodyTopX = s.x, bodyTopY = s.y - 58;
+  let bodyBotX = s.x, bodyBotY = s.y - 25;
+  let lArmEndX, lArmEndY, rArmEndX, rArmEndY;
+  let lLegEndX, lLegEndY, rLegEndX, rLegEndY;
+  let headR = 12;
+
+  const bounce = stickClickBounce > 0 ? Math.sin(stickClickBounce * 0.3) * 8 : 0;
+  headY -= bounce;
+  bodyTopY -= bounce;
+  bodyBotY -= bounce;
+
+  switch (stickAction) {
+    case 'idle': {
+      const breathe = Math.sin(t * 0.04) * 2;
+      headY += breathe;
+      bodyTopY += breathe * 0.5;
+      lArmEndX = s.x - 18; lArmEndY = s.y - 40 + breathe;
+      rArmEndX = s.x + 18; rArmEndY = s.y - 40 + breathe;
+      lLegEndX = s.x - 12; lLegEndY = s.y;
+      rLegEndX = s.x + 12; rLegEndY = s.y;
+      break;
+    }
+    case 'walk': {
+      const cycle = t * 0.08;
+      const legSwing = Math.sin(cycle) * 20;
+      const armSwing = Math.sin(cycle) * 15;
+      const bob = Math.abs(Math.sin(cycle)) * 3;
+      headY -= bob;
+      bodyTopY -= bob * 0.5;
+      bodyBotY -= bob * 0.3;
+      lArmEndX = s.x - 10 + armSwing; lArmEndY = s.y - 35;
+      rArmEndX = s.x + 10 - armSwing; rArmEndY = s.y - 35;
+      lLegEndX = s.x - 5 + legSwing; lLegEndY = s.y;
+      rLegEndX = s.x + 5 - legSwing; rLegEndY = s.y;
+      s.x += 0.8;
+      if (s.x > W - 50) s.x = 50;
+      break;
+    }
+    case 'run': {
+      const cycle = t * 0.15;
+      const legSwing = Math.sin(cycle) * 30;
+      const armSwing = Math.sin(cycle) * 25;
+      const bob = Math.abs(Math.sin(cycle)) * 6;
+      const lean = 5;
+      headX += lean; headY -= bob;
+      bodyTopX += lean * 0.7; bodyTopY -= bob * 0.5;
+      bodyBotX += lean * 0.3; bodyBotY -= bob * 0.3;
+      lArmEndX = s.x - 5 + armSwing; lArmEndY = s.y - 30;
+      rArmEndX = s.x + 15 - armSwing; rArmEndY = s.y - 30;
+      lLegEndX = s.x + legSwing; lLegEndY = s.y;
+      rLegEndX = s.x - legSwing; rLegEndY = s.y;
+      s.x += 2.5;
+      if (s.x > W - 50) s.x = 50;
+      break;
+    }
+    case 'jump': {
+      s.jumpPhase += 0.06;
+      const jumpH = Math.abs(Math.sin(s.jumpPhase)) * 60;
+      const squash = jumpH < 5 ? 0.85 : 1;
+      headY -= jumpH;
+      bodyTopY -= jumpH;
+      bodyBotY -= jumpH;
+      lArmEndX = s.x - 22; lArmEndY = s.y - 55 - jumpH;
+      rArmEndX = s.x + 22; rArmEndY = s.y - 55 - jumpH;
+      lLegEndX = s.x - 10; lLegEndY = s.y - jumpH * 0.3;
+      rLegEndX = s.x + 10; rLegEndY = s.y - jumpH * 0.3;
+      if (jumpH > 30) {
+        lLegEndX = s.x - 15; lLegEndY = s.y - jumpH + 10;
+        rLegEndX = s.x + 15; rLegEndY = s.y - jumpH + 10;
+      }
+      break;
+    }
+    case 'flip': {
+      s.flipCount += 0.08;
+      const flipAngle = s.flipCount;
+      const flipH = Math.abs(Math.sin(flipAngle * 0.5)) * 50;
+      const cx = s.x, cy = s.y - 45 - flipH;
+      ctx.translate(cx, cy);
+      ctx.rotate(flipAngle * 2);
+      ctx.translate(-cx, -cy);
+      headY -= flipH;
+      bodyTopY -= flipH;
+      bodyBotY -= flipH;
+      lArmEndX = s.x - 20; lArmEndY = s.y - 55 - flipH;
+      rArmEndX = s.x + 20; rArmEndY = s.y - 55 - flipH;
+      lLegEndX = s.x - 8; lLegEndY = s.y - flipH * 0.2;
+      rLegEndX = s.x + 8; rLegEndY = s.y - flipH * 0.2;
+      break;
+    }
+    case 'dance': {
+      const d = t * 0.1;
+      const sway = Math.sin(d) * 15;
+      const bounce2 = Math.abs(Math.sin(d * 2)) * 8;
+      headX += sway * 0.5; headY -= bounce2;
+      bodyTopX += sway * 0.3; bodyTopY -= bounce2 * 0.5;
+      bodyBotX += sway * 0.1;
+      lArmEndX = s.x - 25 + Math.sin(d + 1) * 10; lArmEndY = s.y - 55 - bounce2 + Math.cos(d) * 10;
+      rArmEndX = s.x + 25 + Math.cos(d + 1) * 10; rArmEndY = s.y - 55 - bounce2 + Math.sin(d) * 10;
+      lLegEndX = s.x - 12 + Math.sin(d) * 10; lLegEndY = s.y;
+      rLegEndX = s.x + 12 + Math.cos(d) * 10; rLegEndY = s.y;
+      break;
+    }
+    case 'wave': {
+      const w = t * 0.1;
+      const breathe2 = Math.sin(t * 0.04) * 2;
+      headY += breathe2;
+      lArmEndX = s.x - 18; lArmEndY = s.y - 40 + breathe2;
+      rArmEndX = s.x + 20 + Math.sin(w) * 10; rArmEndY = s.y - 65 + Math.cos(w * 2) * 5;
+      lLegEndX = s.x - 12; lLegEndY = s.y;
+      rLegEndX = s.x + 12; rLegEndY = s.y;
+      break;
+    }
+    case 'jumpToTruck': {
+      jumpToTruckPhase += 0.025;
+      const targetX = truck.x + 30;
+      const targetY = truck.y - 85;
+      if (jumpToTruckPhase >= 1) {
+        onTruck = true;
+        stickAction = 'idle';
+        stickman.x = targetX;
+        stickman.y = targetY;
+        document.querySelectorAll('.stick-btn').forEach(b => b.classList.remove('active'));
+        document.querySelector('.stick-btn[data-action="idle"]').classList.add('active');
+      }
+      const progress = jumpToTruckPhase;
+      const easeProgress = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+      s.x = jumpStartX + (targetX - jumpStartX) * easeProgress;
+      const arcHeight = 80 * Math.sin(progress * Math.PI);
+      s.y = jumpStartY - arcHeight;
+      headY -= arcHeight;
+      bodyTopY -= arcHeight;
+      bodyBotY -= arcHeight;
+
+      const leanAngle = progress < 0.5 ? 15 : -5;
+      ctx.translate(s.x, s.y - 35);
+      ctx.rotate(leanAngle * Math.PI / 180);
+      ctx.translate(-(s.x), -(s.y - 35));
+
+      const runCycle = t * 0.25;
+      lArmEndX = s.x - 18 + Math.sin(runCycle) * 12; lArmEndY = s.y - 45;
+      rArmEndX = s.x + 18 - Math.sin(runCycle) * 12; rArmEndY = s.y - 50;
+      lLegEndX = s.x - 8 + Math.sin(runCycle) * 15; lLegEndY = s.y;
+      rLegEndX = s.x + 8 - Math.sin(runCycle) * 15; rLegEndY = s.y;
+      break;
+    }
+  }
+
+  ctx.strokeStyle = '#2d2d2d';
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  sketchLine(bodyTopX, bodyTopY, bodyBotX, bodyBotY, 1.5);
+  sketchLine(bodyTopX, bodyTopY, lArmEndX, lArmEndY, 1.5);
+  sketchLine(bodyTopX, bodyTopY, rArmEndX, rArmEndY, 1.5);
+  sketchLine(bodyBotX, bodyBotY, lLegEndX, lLegEndY, 1.5);
+  sketchLine(bodyBotX, bodyBotY, rLegEndX, rLegEndY, 1.5);
+
+  ctx.fillStyle = '#fff';
+  sketchCircle(headX, headY, headR, 1.5);
+
+  ctx.fillStyle = '#2d2d2d';
+  const eyeOff = stickAction === 'run' ? 3 : 2;
+  ctx.beginPath();
+  ctx.arc(headX - 4 + eyeOff, headY - 2, 2, 0, Math.PI * 2);
+  ctx.arc(headX + 4 + eyeOff, headY - 2, 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (stickAction === 'dance' || stickAction === 'wave') {
+    ctx.beginPath();
+    ctx.arc(headX + 2, headY + 4, 4, 0, Math.PI);
+    ctx.stroke();
+  } else if (stickAction === 'jump' || stickAction === 'flip') {
+    ctx.beginPath();
+    ctx.arc(headX + 2, headY + 3, 3, 0, Math.PI);
+    ctx.stroke();
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(headX - 4, headY + 4);
+    ctx.lineTo(headX + 4, headY + 4);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function drawWheel(cx, cy, r) {
+  ctx.save();
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 2;
+  sketchCircle(cx, cy, r, 1);
+
+  const angle = truck.wheelAngle;
+  for (let i = 0; i < 4; i++) {
+    const a = angle + (i / 4) * Math.PI * 2;
+    sketchLine(cx, cy, cx + Math.cos(a) * (r - 2), cy + Math.sin(a) * (r - 2), 0.5);
+  }
+
+  ctx.fillStyle = '#333';
+  ctx.beginPath();
+  ctx.arc(cx, cy, 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawTruck() {
+  ctx.save();
+  const tx = truck.x;
+  const ty = truck.y;
+
+  ctx.strokeStyle = '#e63946';
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = 'round';
+
+  const cabW = 55, cabH = 40;
+  const cargoW = 90, cargoH = 50;
+  const cabX = tx + cargoW - 5;
+  const cabY = ty - cabH;
+  const cargoX = tx;
+  const cargoY = ty - cargoH;
+
+  ctx.fillStyle = 'rgba(230,57,70,0.15)';
+  sketchRect(cargoX, cargoY, cargoW, cargoH, 2);
+  ctx.strokeStyle = '#e63946';
+  sketchRect(cargoX, cargoY, cargoW, cargoH, 2);
+
+  if (truck.cargo.length > 0) {
+    ctx.fillStyle = 'rgba(255,209,102,0.5)';
+    for (let i = 0; i < truck.cargo.length; i++) {
+      const bx = cargoX + 10 + (i % 3) * 25;
+      const by = cargoY + cargoH - 15 - Math.floor(i / 3) * 15;
+      sketchRect(bx, by, 20, 12, 1);
+    }
+  }
+
+  ctx.fillStyle = 'rgba(69,123,157,0.15)';
+  ctx.strokeStyle = '#457b9d';
+  sketchRect(cabX, cabY, cabW, cabH, 2);
+
+  ctx.strokeStyle = '#a8dadc';
+  ctx.lineWidth = 1.5;
+  sketchRect(cabX + 8, cabY + 5, cabW - 16, cabH * 0.45, 1);
+
+  ctx.strokeStyle = '#e63946';
+  ctx.lineWidth = 2.5;
+  const underY = ty;
+  sketchLine(cargoX, underY, cabX + cabW, underY, 2);
+
+  const wheelR = 10;
+  drawWheel(cargoX + 20, underY + wheelR - 2, wheelR);
+  drawWheel(cargoX + cargoW - 20, underY + wheelR - 2, wheelR);
+  drawWheel(cabX + cabW - 15, underY + wheelR - 2, wheelR);
+
+  if (truckAction === 'drive') {
+    ctx.strokeStyle = 'rgba(100,100,100,0.4)';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 3; i++) {
+      const ex = cargoX - 10 - i * 12 - (time * 0.5 % 20);
+      const ey = ty - 10 + Math.sin(time * 0.1 + i) * 3;
+      sketchCircle(ex, ey, 4 + i * 2, 2);
+    }
+  }
+
+  if (truck.honkTimer > 0) {
+    ctx.strokeStyle = '#ffd166';
+    ctx.lineWidth = 2;
+    const hx = cabX + cabW + 5;
+    const hy = cabY + 15;
+    for (let i = 0; i < 3; i++) {
+      const r = 8 + i * 8 + (30 - truck.honkTimer) * 0.5;
+      const alpha = Math.max(0, truck.honkTimer / 30);
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      ctx.arc(hx + i * 5, hy, r, -0.4, 0.4);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = '#ffd166';
+    ctx.font = `${14 + Math.sin(time * 0.3) * 2}px cursive`;
+    ctx.fillText('BEEP!', hx + 10, hy - 20);
+  }
+
+  ctx.strokeStyle = '#457b9d';
+  ctx.lineWidth = 2;
+  sketchLine(cabX + cabW - 2, cabY - 2, cabX + cabW + 5, cabY - 12, 1.5);
+  sketchCircle(cabX + cabW + 5, cabY - 14, 4, 1);
+
+  if (barrier.stoppedTruck) {
+    const blink = Math.sin(time * 0.15) > 0;
+    if (blink) {
+      ctx.fillStyle = '#ef476f';
+      ctx.font = 'bold 20px cursive';
+      ctx.fillText('⚠️', cabX + cabW + 12, cabY);
+      ctx.font = '11px cursive';
+      ctx.fillText('等道闸!', cabX + cabW + 10, cabY + 16);
+    }
+  }
+
+  ctx.restore();
+}
+
+function drawLoadingAnimation() {
+  if (truckAction !== 'load' || truck.loadProgress <= 0) return;
+  ctx.save();
+  const tx = truck.x;
+  const ty = truck.y;
+  const cargoX = tx;
+  const cargoY = ty - 50;
+
+  const boxX = cargoX + 10 + (truck.cargo.length % 3) * 25;
+  const targetY = cargoY + 50 - 15 - Math.floor(truck.cargo.length / 3) * 15;
+  const startY = cargoY - 30;
+  const currentY = startY + (targetY - startY) * Math.min(1, truck.loadProgress / 30);
+
+  ctx.strokeStyle = '#ffd166';
+  ctx.lineWidth = 2;
+  sketchRect(boxX, currentY, 20, 12, 1);
+
+  ctx.restore();
+}
+
+function updateTruck() {
+  const truckFront = truck.x + 140;
+  const barrierStopX = barrier.x - 5;
+
+  if (!barrier.isOpen && barrier.angle < Math.PI / 6) {
+    if (truckAction === 'drive' && truckFront >= barrierStopX - 30 && truckFront <= barrierStopX + 5) {
+      if (!barrier.stoppedTruck) {
+        barrier.stoppedTruck = true;
+      }
+    }
+  }
+
+  if (barrier.stoppedTruck && !barrier.isOpen) {
+    truck.wheelAngle *= 0.95;
+  } else if (barrier.stoppedTruck && barrier.isOpen && barrier.angle > Math.PI / 3) {
+    barrier.stoppedTruck = false;
+  }
+
+  if (truckAction === 'drive' && !barrier.stoppedTruck) {
+    truck.x += truck.speed;
+    truck.wheelAngle += 0.1;
+    if (truck.x > W + 50) truck.x = -150;
+  } else if (truckAction === 'stop') {
+    truck.wheelAngle *= 0.95;
+  }
+
+  if (truck.honkTimer > 0) truck.honkTimer--;
+
+  if (truckAction === 'load' && truck.cargo.length < 6) {
+    truck.loadProgress++;
+    if (truck.loadProgress >= 30) {
+      truck.cargo.push(1);
+      truck.loadProgress = 0;
+      if (truck.cargo.length >= 6) {
+        truckAction = 'stop';
+        document.querySelectorAll('.truck-btn').forEach(b => b.classList.remove('active'));
+        document.querySelector('.truck-btn[data-action="stop"]').classList.add('active');
+      }
+    }
+  }
+}
+
+function drawBackground() {
+  ctx.save();
+
+  const grad = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+  grad.addColorStop(0, '#87CEEB');
+  grad.addColorStop(0.7, '#b8e4f0');
+  grad.addColorStop(1, '#d4f1d4');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, GROUND_Y);
+
+  for (const cloud of clouds) {
+    cloud.x += cloud.speed;
+    if (cloud.x > W + cloud.w) cloud.x = -cloud.w;
+    drawCloud(cloud.x, cloud.y, cloud.w);
+  }
+
+  drawSun();
+  drawGround();
+  drawBarrier();
+  ctx.restore();
+}
+
+function drawTitle() {
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font = '12px cursive';
+  const actionNames = {
+    idle: onTruck ? '站在卡车顶上~' : '站着休息中~', walk: '散步中~', run: '跑步中!',
+    jump: '跳跳跳!', flip: '翻跟头!', dance: '跳舞中~', wave: '打招呼~',
+    jumpToTruck: '正在跳上卡车! 🚛'
+  };
+  ctx.fillText(`🧍 ${actionNames[stickAction] || ''}`, stickman.x - 30, stickman.y - (onTruck ? 95 : 90));
+
+  if (truckAction === 'drive') {
+    if (barrier.stoppedTruck) ctx.fillText('🚛 ⛔ 等道闸开...', truck.x + 10, truck.y - 65);
+    else ctx.fillText('🚛 行驶中~', truck.x + 30, truck.y - 65);
+  }
+  else if (truckAction === 'honk') ctx.fillText('🚛 嘟嘟!', truck.x + 30, truck.y - 65);
+  else if (truckAction === 'load') ctx.fillText('🚛 装货中...', truck.x + 30, truck.y - 65);
+  else ctx.fillText('🚛 停车中', truck.x + 30, truck.y - 65);
+
+  ctx.restore();
+}
+
+function isInsideTruck(mx, my) {
+  const tx = truck.x - 10;
+  const ty = truck.y - 55;
+  return mx >= tx && mx <= tx + 160 && my >= ty && my <= ty + 70;
+}
+
+function isInsideStickman(mx, my) {
+  const dx = mx - stickman.x;
+  const dy = my - (stickman.y - 35);
+  return dx * dx + dy * dy < 40 * 40;
+}
+
+canvas.addEventListener('mousedown', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (W / rect.width);
+  const my = (e.clientY - rect.top) * (H / rect.height);
+
+  if (isInsideTruck(mx, my)) {
+    dragTarget = 'truck';
+    dragOffsetX = mx - truck.x;
+    dragOffsetY = my - truck.y;
+    canvas.style.cursor = 'grabbing';
+  } else if (isInsideStickman(mx, my)) {
+    stickClickBounce = 20;
+  }
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (W / rect.width);
+  const my = (e.clientY - rect.top) * (H / rect.height);
+
+  if (dragTarget === 'truck') {
+    truck.x = mx - dragOffsetX;
+    truck.y = my - dragOffsetY;
+  } else {
+    if (isInsideTruck(mx, my)) {
+      canvas.style.cursor = 'grab';
+    } else if (isInsideStickman(mx, my)) {
+      canvas.style.cursor = 'pointer';
+    } else {
+      canvas.style.cursor = 'default';
+    }
+  }
+});
+
+canvas.addEventListener('mouseup', () => {
+  dragTarget = null;
+  canvas.style.cursor = 'default';
+});
+
+canvas.addEventListener('mouseleave', () => {
+  dragTarget = null;
+  canvas.style.cursor = 'default';
+});
+
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const touch = e.touches[0];
+  const mx = (touch.clientX - rect.left) * (W / rect.width);
+  const my = (touch.clientY - rect.top) * (H / rect.height);
+
+  if (isInsideTruck(mx, my)) {
+    dragTarget = 'truck';
+    dragOffsetX = mx - truck.x;
+    dragOffsetY = my - truck.y;
+  } else if (isInsideStickman(mx, my)) {
+    stickClickBounce = 20;
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  if (dragTarget === 'truck') {
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    const mx = (touch.clientX - rect.left) * (W / rect.width);
+    const my = (touch.clientY - rect.top) * (H / rect.height);
+    truck.x = mx - dragOffsetX;
+    truck.y = my - dragOffsetY;
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchend', () => {
+  dragTarget = null;
+});
+
+document.querySelectorAll('.stick-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const action = btn.dataset.action;
+    if (action === 'jumpToTruck' && !onTruck) {
+      stickAction = 'jumpToTruck';
+      jumpToTruckPhase = 0;
+      jumpStartX = stickman.x;
+      jumpStartY = stickman.y;
+    } else if (action === 'getOff' && onTruck) {
+      onTruck = false;
+      stickAction = 'idle';
+      stickman.x = truck.x + 80;
+      stickman.y = GROUND_Y;
+    } else if (onTruck && action !== 'jumpToTruck' && action !== 'getOff') {
+      onTruck = false;
+      stickAction = action;
+      stickman.x = truck.x + 30;
+      stickman.y = GROUND_Y;
+    } else if (!onTruck) {
+      stickAction = action;
+    }
+    stickman.jumpPhase = 0;
+    stickman.flipCount = 0;
+    document.querySelectorAll('.stick-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
+document.querySelectorAll('.truck-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const action = btn.dataset.action;
+    if (action === 'honk') {
+      truck.honkTimer = 30;
+      return;
+    }
+    if (action === 'load') {
+      truck.cargo = [];
+      truck.loadProgress = 0;
+    }
+    truckAction = action;
+    document.querySelectorAll('.truck-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
+const barrierBtn = document.getElementById('barrier-btn');
+barrierBtn.addEventListener('click', () => {
+  barrier.isOpen = !barrier.isOpen;
+  barrier.targetAngle = barrier.isOpen ? Math.PI / 2 : 0;
+  barrierBtn.textContent = barrier.isOpen ? '关闭道闸⬇️' : '打开道闸⬆️';
+  barrierBtn.classList.toggle('active');
+});
+
+function animate() {
+  time++;
+  if (stickClickBounce > 0) stickClickBounce--;
+
+  if (onTruck && stickAction !== 'jumpToTruck') {
+    stickman.x = truck.x + 30;
+    stickman.y = truck.y - 85;
+  }
+
+  ctx.clearRect(0, 0, W, H);
+
+  drawBackground();
+  updateTruck();
+  drawTruck();
+  drawLoadingAnimation();
+  drawStickman();
+  drawTitle();
+
+  requestAnimationFrame(animate);
+}
+
+animate();
+</script>
+</body>
+</html>

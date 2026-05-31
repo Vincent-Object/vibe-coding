@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>城市公交运行 - 小朋友乐园</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #1a1a2e;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  font-family: 'Comic Sans MS', 'Marker Felt', cursive, sans-serif;
+  overflow-x: hidden;
+}
+h1 { color: #ffd166; font-size: 22px; margin: 0 0 10px 0; text-shadow: 2px 2px 0 #ef476f; text-align: center; }
+.main-area {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+.left-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+canvas {
+  border: 3px solid #ffd166;
+  border-radius: 12px;
+  background: #2d5a27;
+}
+.side-panel {
+  width: 260px;
+  background: rgba(255,255,255,0.06);
+  border: 2px solid rgba(255,255,255,0.15);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.panel-title {
+  color: #ffd166;
+  font-size: 15px;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 4px;
+}
+.bus-list-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.05);
+  border: 2px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 15px;
+  color: rgba(255,255,255,0.8);
+}
+.bus-list-item:hover {
+  background: rgba(255,255,255,0.1);
+  transform: translateX(3px);
+}
+.bus-list-item.selected {
+  border-color: #ffd166;
+  background: rgba(255,209,102,0.15);
+  color: #ffd166;
+  box-shadow: 0 0 12px rgba(255,209,102,0.25);
+}
+.bus-color-dot {
+  width: 22px; height: 22px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  border: 1.5px solid rgba(255,255,255,0.3);
+}
+.bus-route-badge {
+  color: #ff3333;
+  font-weight: 900;
+  font-size: 17px;
+  min-width: 32px;
+  text-align: center;
+}
+.bus-state-text {
+  flex: 1;
+  font-size: 11px;
+  opacity: 0.7;
+  text-align: right;
+}
+.controls-hint {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+}
+.key-row {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin: 3px 0;
+}
+.key-btn {
+  width: 36px; height: 36px;
+  border: 2px solid rgba(255,209,102,0.4);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.05);
+  color: #ffd166;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.key-label {
+  color: rgba(255,255,255,0.45);
+  font-size: 11px;
+  text-align: center;
+  margin-top: 2px;
+}
+.toolbar { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.toolbar .btn { width: 100%; text-align: center; }
+.map-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.map-btn {
+  padding: 8px 12px;
+  border: 2px solid rgba(255,209,102,0.3);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.8);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+.map-btn:hover {
+  background: rgba(255,255,255,0.1);
+  transform: translateX(3px);
+}
+.map-btn.active {
+  border-color: #ffd166;
+  background: rgba(255,209,102,0.15);
+  color: #ffd166;
+  box-shadow: 0 0 12px rgba(255,209,102,0.25);
+}
+.map-btn-name {
+  font-weight: bold;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+.map-btn-desc {
+  font-size: 11px;
+  opacity: 0.7;
+}
+.side-legend {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.15);
+}
+.legend-title {
+  color: #ffd166;
+  font-size: 13px;
+  font-weight: bold;
+  margin-bottom: 6px;
+  text-align: center;
+}
+.legend-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.legend-grid .legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.75);
+}
+.legend-grid .legend-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.side-legend .hint {
+  color: rgba(255,255,255,0.5);
+  font-size: 11px;
+  text-align: center;
+  line-height: 1.3;
+}
+.btn {
+  padding: 8px 20px; border: 2px solid #ffd166; border-radius: 20px;
+  background: transparent; color: #fff; font-family: inherit;
+  font-size: 14px; cursor: pointer; transition: all 0.2s;
+}
+.btn:hover { background: #ffd166; color: #1a1a2e; transform: scale(1.05); }
+.legend { display: flex; gap: 16px; margin: 6px 0 4px; font-size: 13px; color: rgba(255,255,255,0.7); align-items: center; }
+.legend-item { display: flex; align-items: center; gap: 4px; }
+.legend-dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+.hint { color: rgba(255,255,255,0.45); font-size: 12px; margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<div class="main-area">
+  <div class="left-content">
+    <canvas id="canvas" width="1600" height="1000"></canvas>
+  </div>
+  <div class="side-panel" id="sidePanel">
+    <h1>🏙️ 城市公交运行 🚌</h1>
+    <div class="map-selector" id="mapSelector"></div>
+    <div class="toolbar">
+      <button class="btn" id="backBtn">🔙 返回车库</button>
+      <button class="btn" id="speedBtn">⚡ 加速 x2</button>
+      <button class="btn" id="pauseBtn">⏸️ 暂停</button>
+      <button class="btn" id="driveBusBtn" style="border-color:#42A5F5;background:rgba(66,165,245,0.15);">🎮 驾驶此车</button>
+    </div>
+    <div class="panel-title">📋 车辆列表（点击选中）</div>
+    <div id="busList"></div>
+    <div class="controls-hint">
+      <div class="key-label" style="margin-bottom:4px;">⌨️ 自由驾驶模式</div>
+      <div class="key-row"><div class="key-btn">⬆</div></div>
+      <div class="key-row"><div class="key-btn">⬅</div><div class="key-btn">⬇</div><div class="key-btn">➡</div></div>
+      <div class="key-label">↑加速 ↓刹车 ←左转 ➡右转</div>
+      <div class="key-label" style="margin-top:8px; color:#06d6a0;">空格键 = 返回自动模式</div>
+    </div>
+
+    <div class="side-legend">
+      <div class="legend-title">📊 图例说明</div>
+      <div class="legend-grid">
+        <span class="legend-item"><span class="legend-dot" style="background:#ff4444"></span> 红灯停车</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#44ff44"></span> 绿灯通行</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#ffd166"></span> 公交站台</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#87CEEB"></span> 公交车</span>
+      </div>
+      <div class="hint">💡 选中车辆 → ⬆⬇⬅➡ 自由驾驶 → 空格返回</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+let time = 0;
+let speedMultiplier = 1;
+let paused = false;
+let selectedBusIdx = 0;
+
+const ROAD_W = 140;
+
+let currentMapIndex = 0;
+
+const maps = [
+  {
+    name: '🏙️ 城市环路',
+    description: '弯曲的城市主干道',
+    paths: [
+      {
+        name: '主环路',
+        points: [
+          {x: 160, y: 200},   {x: 800, y: 200},  {x: 900, y: 300},
+          {x: 1500, y: 300},  {x: 1600, y: 400}, {x: 1600, y: 700},
+          {x: 1600, y: 760},  {x: 1460, y: 900},  {x: 1000, y: 900},
+          {x: 840, y: 740},   {x: 400, y: 740},   {x: 240, y: 580},
+          {x: 240, y: 340},   {x: 160, y: 260}
+        ],
+        isBranch: false
+      },
+      {
+        name: '北部分支',
+        points: [
+          {x: 800, y: 200}, {x: 700, y: 120},  {x: 500, y: 120},
+          {x: 360, y: 200}, {x: 360, y: 320},  {x: 440, y: 400},
+          {x: 600, y: 400}, {x: 720, y: 280},  {x: 800, y: 200}
+        ],
+        isBranch: true
+      },
+      {
+        name: '南部分支',
+        points: [
+          {x: 1000, y: 900}, {x: 1100, y: 1000},{x: 1300, y: 1000},
+          {x: 1440, y: 860}, {x: 1440, y: 700}, {x: 1300, y: 560},
+          {x: 1160, y: 560}, {x: 1040, y: 680}, {x: 1000, y: 900}
+        ],
+        isBranch: true
+      }
+    ],
+    trafficLights: [
+      { x: 790, y: 210, dir: 'right', phase: 0, duration: 180 },
+      { x: 1610, y: 540, dir: 'down',  phase: 90, duration: 180 },
+      { x: 1400, y: 910, dir: 'left',  phase: 40, duration: 200 },
+      { x: 310, y: 460, dir: 'up',    phase: 130, duration: 180 }
+    ],
+    busStops: [
+      { x: 560, y: 270, name: '阳光站' },
+      { x: 1240, y: 350, name: '花园站' },
+      { x: 1600, y: 620, name: '中心站' },
+      { x: 1200, y: 870, name: '公园站' },
+      { x: 520, y: 730, name: '学校站' },
+      { x: 250, y: 460, name: '医院站' }
+    ]
+  },
+  {
+    name: '📐 网格城市',
+    description: '外环+井字型道路',
+    paths: [
+      {
+        name: '外环',
+        points: [
+          {x: 140, y: 100}, {x: 1460, y: 100},
+          {x: 1460, y: 900}, {x: 140, y: 900},
+          {x: 140, y: 100}
+        ],
+        isBranch: false
+      },
+      {
+        name: '横向主干道（上）',
+        points: [
+          {x: 140, y: 310}, {x: 1460, y: 310}
+        ],
+        isBranch: true
+      },
+      {
+        name: '横向主干道（下）',
+        points: [
+          {x: 140, y: 690}, {x: 1460, y: 690}
+        ],
+        isBranch: true
+      },
+      {
+        name: '纵向主干道（左）',
+        points: [
+          {x: 485, y: 100}, {x: 485, y: 900}
+        ],
+        isBranch: true
+      },
+      {
+        name: '纵向主干道（右）',
+        points: [
+          {x: 1115, y: 100}, {x: 1115, y: 900}
+        ],
+        isBranch: true
+      }
+    ],
+    trafficLights: [],
+    busStops: []
+  }
+];
+
+function getCurrentMap() {
+  return maps[currentMapIndex];
+}
+
+function buildAllPaths() {
+  const map = getCurrentMap();
+  return map.paths.map(path => buildPathPoints(path.points));
+}
+
+const rawBuses = JSON.parse(localStorage.getItem('dispatchBuses') || '[]');
+if (rawBuses.length === 0) {
+  rawBuses.push({ id: 1, color: '#e63946', route: '101' });
+}
+
+let allPathPoints = [];
+
+function refreshPaths() {
+  allPathPoints = buildAllPaths();
+}
+
+function buildPathPoints(path) {
+  const pts = [];
+  for (let i = 0; i < path.length - 1; i++) {
+    const p0 = path[i];
+    const p1 = path[i + 1];
+    const dist = Math.sqrt((p1.x - p0.x) ** 2 + (p1.y - p0.y) ** 2);
+    const steps = Math.max(Math.ceil(dist / 3), 2);
+    for (let t = 0; t <= 1; t += 1 / steps) {
+      pts.push({
+        x: p0.x + (p1.x - p0.x) * t,
+        y: p0.y + (p1.y - p0.y) * t
+      });
+    }
+  }
+  return pts;
+}
+
+refreshPaths();
+
+let activeBuses = [];
+
+function createBus(data, pathIdx) {
+  const pts = allPathPoints[pathIdx % allPathPoints.length];
+  const laneOffset = (Math.random() > 0.5 ? 1 : -1) * (ROAD_W * 0.25);
+  return {
+    ...data,
+    pathIdx: pathIdx,
+    pts: pts,
+    pos: 0,
+    baseSpeed: 0.55 + Math.random() * 0.35,
+    speed: 0.55 + Math.random() * 0.35,
+    state: 'driving',
+    stopTimer: 0,
+    waitAtStop: 0,
+    visitedStops: new Set(),
+    manualControl: false,
+
+    freeX: 0,
+    freeY: 0,
+    freeAngle: 0,
+    turnSpeed: 0,
+    laneOffset: laneOffset
+  };
+}
+
+function spawnAllBuses() {
+  activeBuses = [];
+  let idx = 0;
+  for (let i = 0; i < rawBuses.length; i++) {
+    const b = createBus(rawBuses[i], idx);
+    b.pos = Math.floor(ptsLength(b.pts) * (i / rawBuses.length)) * 0.9;
+    activeBuses.push(b);
+    idx++;
+    if (idx > 2) idx = 0;
+  }
+}
+
+function ptsLength(pts) { return pts.length; }
+
+function getPosOnPath(bus) {
+  if (bus.manualControl && bus.freeX !== 0 && bus.freeY !== 0) {
+    return { x: bus.freeX, y: bus.freeY };
+  }
+
+  let pos = bus.pos;
+  if (pos < 0) pos = 0;
+  if (pos >= bus.pts.length - 1) pos = bus.pts.length - 1 - 0.001;
+  const idx = Math.floor(pos);
+  if (idx >= bus.pts.length - 1) return bus.pts[bus.pts.length - 1];
+  const t = pos - idx;
+
+  const baseX = bus.pts[idx].x + (bus.pts[idx + 1].x - bus.pts[idx].x) * t;
+  const baseY = bus.pts[idx].y + (bus.pts[idx + 1].y - bus.pts[idx].y) * t;
+
+  if (bus.laneOffset === undefined || bus.manualControl) {
+    return { x: baseX, y: baseY };
+  }
+
+  const angle = getAngle(bus);
+  const perpAngle = angle + Math.PI / 2;
+  const offset = bus.laneOffset;
+
+  return {
+    x: baseX + Math.cos(perpAngle) * offset,
+    y: baseY + Math.sin(perpAngle) * offset
+  };
+}
+
+function getAngle(bus) {
+  if (bus.manualControl && bus.freeAngle !== 0) {
+    return bus.freeAngle;
+  }
+
+  let pos = bus.pos;
+  if (pos < 0) pos = 0;
+  if (pos >= bus.pts.length - 1) pos = bus.pts.length - 1 - 0.001;
+  const idx = Math.min(Math.floor(pos), bus.pts.length - 2);
+  const dx = bus.pts[idx + 1].x - bus.pts[idx].x;
+  const dy = bus.pts[idx + 1].y - bus.pts[idx].y;
+  return Math.atan2(dy, dx);
+}
+
+function getLightState(light) {
+  const cycle = light.duration * 2;
+  const p = ((time * speedMultiplier + light.phase) % cycle) / cycle;
+  return p < 0.5 ? 'red' : 'green';
+}
+
+function nearLight(bus) {
+  const bp = getPosOnPath(bus);
+  const map = getCurrentMap();
+  for (const light of map.trafficLights) {
+    const dx = bp.x - light.x;
+    const dy = bp.y - light.y;
+    if (Math.sqrt(dx * dx + dy * dy) < 70 && getLightState(light) === 'red') {
+      return true;
+    }
+  }
+  return false;
+}
+
+function nearStop(bus) {
+  const bp = getPosOnPath(bus);
+  const map = getCurrentMap();
+  for (let i = 0; i < map.busStops.length; i++) {
+    const stop = map.busStops[i];
+    const key = i;
+    if (bus.visitedStops.has(key)) continue;
+    const dx = bp.x - stop.x;
+    const dy = bp.y - stop.y;
+    if (Math.sqrt(dx * dx + dy * dy) < 60) {
+      return key;
+    }
+  }
+  return null;
+}
+
+function updateBuses() {
+  if (paused) return;
+  time++;
+
+  for (const bus of activeBuses) {
+
+    if (bus.manualControl) {
+
+      bus.freeAngle += bus.turnSpeed * speedMultiplier;
+
+      const moveX = Math.cos(bus.freeAngle) * bus.speed * speedMultiplier;
+      const moveY = Math.sin(bus.freeAngle) * bus.speed * speedMultiplier;
+
+      bus.freeX += moveX;
+      bus.freeY += moveY;
+
+      bus.freeX = Math.max(50, Math.min(W - 50, bus.freeX));
+      bus.freeY = Math.max(50, Math.min(H - 50, bus.freeY));
+
+      bus.turnSpeed *= 0.95;
+
+    } else {
+
+      switch (bus.state) {
+        case 'driving':
+          if (nearLight(bus)) {
+            bus.state = 'waiting_light';
+            break;
+          }
+          const stopKey = nearStop(bus);
+          if (stopKey !== null) {
+            bus.state = 'at_stop';
+            bus.waitAtStop = stopKey;
+            bus.stopTimer = 90 + Math.random() * 60;
+            break;
+          }
+
+          let moveSpeed = bus.speed * speedMultiplier;
+          bus.pos += moveSpeed;
+
+          if (bus.pos >= bus.pts.length - 1) {
+            const map = getCurrentMap();
+            const currentPath = map.paths[bus.pathIdx];
+            if (!currentPath.isBranch || currentPath.points.length > 4) {
+              bus.pos = 0;
+            } else {
+              bus.pathIdx = 0;
+              bus.pts = allPathPoints[0];
+              bus.pos = Math.floor(Math.random() * bus.pts.length * 0.5);
+            }
+            bus.visitedStops.clear();
+          }
+          break;
+
+        case 'waiting_light':
+          if (!nearLight(bus)) {
+            bus.state = 'driving';
+          }
+          break;
+
+        case 'at_stop':
+          bus.stopTimer -= speedMultiplier;
+          if (bus.stopTimer <= 0) {
+            bus.visitedStops.add(bus.waitAtStop);
+            bus.state = 'driving';
+          }
+          break;
+      }
+    }
+  }
+}
+
+function drawGrass() {
+  ctx.fillStyle = '#3d7a37';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = '#4a9542';
+  for (let i = 0; i < 50; i++) {
+    const gx = (i * 47 + time * 0.02) % W;
+    const gy = (i * 31) % H;
+    ctx.beginPath();
+    ctx.arc(gx, gy, 22 + Math.sin(time * 0.02 + i) * 6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.fillStyle = '#5ab354';
+  for (let i = 0; i < 35; i++) {
+    const gx = (i * 67 + 23) % W;
+    const gy = (i * 43 + 17) % H;
+    ctx.beginPath();
+    ctx.arc(gx, gy, 14 + Math.cos(time * 0.03 + i) * 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawPath(path, isBranch) {
+  ctx.strokeStyle = '#5a5a5a';
+  ctx.lineWidth = ROAD_W;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  ctx.beginPath();
+  ctx.moveTo(path[0].x, path[0].y);
+  for (let i = 1; i < path.length; i++) {
+    ctx.lineTo(path[i].x, path[i].y);
+  }
+  ctx.stroke();
+
+  ctx.strokeStyle = '#FFD700';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([24, 36]);
+  ctx.beginPath();
+  ctx.moveTo(path[0].x, path[0].y);
+  for (let i = 1; i < path.length; i++) {
+    ctx.lineTo(path[i].x, path[i].y);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawIntersection(x, y) {
+  ctx.fillStyle = '#555';
+  ctx.beginPath();
+  ctx.arc(x, y, ROAD_W / 2 + 8, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = '#FFD700';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([16, 16]);
+  ctx.beginPath();
+  ctx.moveTo(x - 35, y);
+  ctx.lineTo(x + 35, y);
+  ctx.moveTo(x, y - 35);
+  ctx.lineTo(x, y + 35);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([8, 8]);
+  ctx.beginPath();
+  ctx.moveTo(x - 30, y - 30);
+  ctx.lineTo(x + 30, y + 30);
+  ctx.moveTo(x + 30, y - 30);
+  ctx.lineTo(x - 30, y + 30);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawTrafficLights(light) {
+  const state = getLightState(light);
+  const lx = light.x;
+  const ly = light.y;
+
+  ctx.save();
+  ctx.translate(lx, ly);
+
+  ctx.fillStyle = '#222';
+  ctx.fillRect(-10, -52, 20, 58);
+  ctx.strokeStyle = '#111';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(-10, -52, 20, 58);
+
+  ctx.fillStyle = state === 'red' ? '#ff0000' : '#550000';
+  ctx.beginPath(); ctx.arc(0, -38, 7, 0, Math.PI * 2); ctx.fill();
+  if (state === 'red') {
+    ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 15;
+    ctx.fill(); ctx.shadowBlur = 0;
+  }
+
+  ctx.fillStyle = state === 'green' ? '#00ff00' : '#005500';
+  ctx.beginPath(); ctx.arc(0, -16, 7, 0, Math.PI * 2); ctx.fill();
+  if (state === 'green') {
+    ctx.shadowColor = '#00ff00'; ctx.shadowBlur = 15;
+    ctx.fill(); ctx.shadowBlur = 0;
+  }
+
+  ctx.restore();
+}
+
+function drawBusStop(stop) {
+  ctx.save();
+
+  ctx.fillStyle = 'rgba(255,209,102,0.25)';
+  ctx.strokeStyle = '#ffd166';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([6, 6]);
+
+  ctx.beginPath();
+  ctx.roundRect(stop.x - 36, stop.y - 24, 72, 48, 10);
+  ctx.fill();
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = '#ffd166';
+  ctx.font = 'bold 16px cursive';
+  ctx.textAlign = 'center';
+  ctx.fillText('📍' + stop.name, stop.x, stop.y + 6);
+
+  ctx.restore();
+}
+
+function drawSmallBus(bus, isSelected) {
+  const pos = getPosOnPath(bus);
+  const angle = getAngle(bus);
+
+  ctx.save();
+  ctx.translate(pos.x, pos.y);
+  ctx.rotate(angle);
+
+  const bw = 80, bh = 45;
+  ctx.fillStyle = bus.color;
+  ctx.strokeStyle = shadeColor(bus.color, -40);
+  ctx.lineWidth = 2.5;
+
+  ctx.beginPath();
+  ctx.roundRect(-bw/2, -bh/2, bw, bh, 5);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(135,206,235,0.85)';
+  ctx.fillRect(-bw/2 + 3, -bh/2 + 3, bw * 0.62, bh - 6);
+
+  if (bus.route) {
+    ctx.save();
+    ctx.rotate(-angle);
+    ctx.font = 'bold 24px "Microsoft YaHei", sans-serif';
+    ctx.fillStyle = '#ff0000';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = '#fff';
+    ctx.shadowBlur = 3;
+    ctx.fillText(bus.route, 0, 2);
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+
+  ctx.fillStyle = '#333';
+  ctx.beginPath(); ctx.arc(-bw/2 + 12, bh/2 - 3, 8, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(bw/2 - 12, bh/2 - 3, 8, 0, Math.PI * 2); ctx.fill();
+
+  ctx.fillStyle = '#888';
+  ctx.beginPath(); ctx.arc(-bw/2 + 12, bh/2 - 3, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(bw/2 - 12, bh/2 - 3, 4, 0, Math.PI * 2); ctx.fill();
+
+  if (isSelected) {
+    ctx.strokeStyle = '#ffd166';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([6, 6]);
+    ctx.beginPath();
+    ctx.roundRect(-bw/2 - 8, -bh/2 - 8, bw + 16, bh + 16, 10);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = '#ffd166';
+    ctx.font = 'bold 18px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('✋', 0, -bh/2 - 16);
+  }
+
+  if (bus.state === 'at_stop' || bus.state === 'waiting_light') {
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 26px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const icon = bus.state === 'at_stop' ? '🛑' : '🔴';
+    ctx.fillText(icon, 0, -bh/2 - (isSelected ? 34 : 18));
+  }
+
+  if (bus.manualControl) {
+    ctx.fillStyle = '#06d6a0';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('手控', 0, bh/2 + 20);
+  }
+
+  ctx.restore();
+}
+
+function shadeColor(color, amount) {
+  let r = parseInt(color.slice(1, 3), 16);
+  let g = parseInt(color.slice(3, 5), 16);
+  let b = parseInt(color.slice(5, 7), 16);
+  r = Math.max(0, Math.min(255, r + amount));
+  g = Math.max(0, Math.min(255, g + amount));
+  b = Math.max(0, Math.min(255, b + amount));
+  return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
+}
+
+function drawBuildings() {
+  const buildings = [
+    {x: 280, y: 60, w: 90, h: 85, color: '#c9b896'},
+    {x: 960, y: 80, w: 110, h: 100, color: '#b8a88a'},
+    {x: 600, y: 480, w: 80, h: 90, color: '#d4c4a8'},
+    {x: 1240, y: 420, w: 100, h: 88, color: '#bfa88e'},
+    {x: 100, y: 800, w: 90, h: 100, color: '#c4b498'},
+    {x: 680, y: 960, w: 120, h: 90, color: '#beae92'},
+    {x: 1440, y: 980, w: 100, h: 80, color: '#cab89c'}
+  ];
+
+  for (const b of buildings) {
+    ctx.fillStyle = b.color;
+    ctx.strokeStyle = shadeColor(b.color, -30);
+    ctx.lineWidth = 2;
+    ctx.fillRect(b.x, b.y, b.w, b.h);
+    ctx.strokeRect(b.x, b.y, b.w, b.h);
+
+    ctx.fillStyle = 'rgba(255,255,200,0.5)';
+    for (let wy = b.y + 10; wy < b.y + b.h - 12; wy += 22) {
+      for (let wx = b.x + 10; wx < b.x + b.w - 10; wx += 26) {
+        ctx.fillRect(wx, wy, 14, 12);
+      }
+    }
+  }
+
+  ctx.fillStyle = '#7cb342';
+  for (const t of [
+    {x: 460, y: 220, r: 22}, {x: 1360, y: 240, r: 28},
+    {x: 200, y: 660, r: 24}, {x: 1520, y: 800, r: 20},
+    {x: 860, y: 1020, r: 26}, {x: 1160, y: 640, r: 18}
+  ]) {
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, t.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#558b2f';
+    ctx.beginPath();
+    ctx.arc(t.x - 3, t.y - 3, t.r * 0.55, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#7cb342';
+  }
+}
+
+function renderMapSelector() {
+  const selectorEl = document.getElementById('mapSelector');
+  selectorEl.innerHTML = '';
+
+  for (let i = 0; i < maps.length; i++) {
+    const map = maps[i];
+    const btn = document.createElement('button');
+    btn.className = 'map-btn' + (i === currentMapIndex ? ' active' : '');
+    btn.innerHTML = `
+      <div class="map-btn-name">${map.name}</div>
+      <div class="map-btn-desc">${map.description}</div>
+    `;
+    btn.addEventListener('click', () => switchMap(i));
+    selectorEl.appendChild(btn);
+  }
+}
+
+function switchMap(newIndex) {
+  if (newIndex === currentMapIndex) return;
+
+  currentMapIndex = newIndex;
+  refreshPaths();
+
+  for (const bus of activeBuses) {
+    bus.manualControl = false;
+    bus.turnSpeed = 0;
+    bus.pathIdx = Math.floor(Math.random() * allPathPoints.length);
+    bus.pts = allPathPoints[bus.pathIdx];
+    bus.pos = Math.floor(Math.random() * bus.pts.length * 0.8);
+    bus.speed = bus.baseSpeed;
+    bus.state = 'driving';
+    bus.visitedStops.clear();
+    bus.freeX = 0;
+    bus.freeY = 0;
+    bus.freeAngle = 0;
+    bus.laneOffset = (Math.random() > 0.5 ? 1 : -1) * (ROAD_W * 0.25);
+  }
+
+  selectedBusIdx = 0;
+  renderMapSelector();
+  renderSidePanel();
+}
+
+function renderSidePanel() {
+  const listEl = document.getElementById('busList');
+  listEl.innerHTML = '';
+  for (let i = 0; i < activeBuses.length; i++) {
+    const bus = activeBuses[i];
+    const isSelected = i === selectedBusIdx;
+    const stateText = bus.state === 'driving' ? '行驶中' :
+                       bus.state === 'at_stop' ? `🛑${getCurrentMap().busStops[bus.waitAtStop]?.name}` :
+                       '🔴等红灯';
+
+    const item = document.createElement('div');
+    item.className = 'bus-list-item' + (isSelected ? ' selected' : '');
+    item.innerHTML = `
+      <div class="bus-color-dot" style="background:${bus.color}"></div>
+      <div class="bus-route-badge">${bus.route || '?'}</div>
+      <div class="bus-state-text">${stateText}</div>
+    `;
+    item.addEventListener('click', () => selectBus(i));
+    listEl.appendChild(item);
+  }
+}
+
+function selectBus(idx) {
+  selectedBusIdx = idx;
+  renderSidePanel();
+}
+
+function handleKeydown(e) {
+  if (activeBuses.length === 0) return;
+  const bus = activeBuses[selectedBusIdx];
+
+  switch(e.key) {
+    case 'ArrowUp':
+      e.preventDefault();
+      bus.speed = Math.min(bus.speed + 0.2, 4.0);
+
+      if (!bus.manualControl) {
+        bus.manualControl = true;
+        const pos = getPosOnPath(bus);
+        const angle = getAngle(bus);
+        bus.freeX = pos.x;
+        bus.freeY = pos.y;
+        bus.freeAngle = angle;
+      }
+      break;
+
+    case 'ArrowDown':
+      e.preventDefault();
+      bus.speed = Math.max(bus.speed - 0.2, 0);
+      if (bus.speed < 0.1) bus.speed = 0;
+      break;
+
+    case 'ArrowLeft':
+      e.preventDefault();
+      bus.turnSpeed -= 0.04;
+
+      if (!bus.manualControl) {
+        bus.manualControl = true;
+        const pos = getPosOnPath(bus);
+        const angle = getAngle(bus);
+        bus.freeX = pos.x;
+        bus.freeY = pos.y;
+        bus.freeAngle = angle;
+      }
+      break;
+
+    case 'ArrowRight':
+      e.preventDefault();
+      bus.turnSpeed += 0.04;
+
+      if (!bus.manualControl) {
+        bus.manualControl = true;
+        const pos = getPosOnPath(bus);
+        const angle = getAngle(bus);
+        bus.freeX = pos.x;
+        bus.freeY = pos.y;
+        bus.freeAngle = angle;
+      }
+      break;
+
+    case ' ':
+      e.preventDefault();
+      if (bus.manualControl) {
+        bus.manualControl = false;
+        bus.turnSpeed = 0;
+        bus.speed = bus.baseSpeed;
+      }
+      break;
+  }
+}
+
+const keysPressed = {};
+
+document.addEventListener('keydown', (e) => {
+  keysPressed[e.key] = true;
+  handleKeydown(e);
+});
+
+document.addEventListener('keyup', (e) => {
+  keysPressed[e.key] = false;
+});
+
+function animate() {
+  updateBuses();
+
+  ctx.clearRect(0, 0, W, H);
+
+  drawGrass();
+  drawBuildings();
+  const map = getCurrentMap();
+
+  for (const pathData of map.paths) {
+    drawPath(pathData.points, pathData.isBranch);
+  }
+
+  for (const stop of map.busStops) drawBusStop(stop);
+  for (const light of map.trafficLights) drawTrafficLights(light);
+  for (let i = 0; i < activeBuses.length; i++) {
+    drawSmallBus(activeBuses[i], i === selectedBusIdx);
+  }
+
+  if (time % 20 === 0) renderSidePanel();
+
+  requestAnimationFrame(animate);
+}
+
+document.getElementById('backBtn').addEventListener('click', () => {
+  window.close();
+  window.location.href = 'index.html';
+});
+
+document.getElementById('driveBusBtn').addEventListener('click', () => {
+  if (activeBuses.length === 0) return;
+  var bus = activeBuses[selectedBusIdx];
+  localStorage.setItem('driveBusData', JSON.stringify({ route: bus.route || '', color: bus.color || '#1565C0' }));
+  window.open('index.html#drive', '_blank');
+});
+
+document.getElementById('speedBtn').addEventListener('click', function() {
+  speedMultiplier = speedMultiplier === 1 ? 2 : (speedMultiplier === 2 ? 3 : 1);
+  this.textContent = speedMultiplier === 1 ? '⚡ 加速 x2' : (speedMultiplier === 2 ? '⚡⚡ 加速 x3' : '⚡ 正常速度');
+});
+
+document.getElementById('pauseBtn').addEventListener('click', function() {
+  paused = !paused;
+  this.textContent = paused ? '▶️ 继续' : '⏸️ 暂停';
+});
+
+renderMapSelector();
+spawnAllBuses();
+renderSidePanel();
+animate();
+</script>
+</body>
+</html>

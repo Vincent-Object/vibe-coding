@@ -1,0 +1,199 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Noto Serif SC', serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+}
+
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: var(--bg-image, none);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    filter: brightness(0.7) blur(3px);
+    z-index: -1;
+    transition: background-image 1s ease-in-out;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.main-title {
+    font-family: 'Dancing Script', cursive;
+    font-size: 4.5rem;
+    color: #fff;
+    text-shadow: 3px 3px 8px rgba(0, 0, 0, 0.7);
+    margin-bottom: 40px;
+    letter-spacing: 2px;
+    animation: fadeInDown 1s ease-out;
+}
+
+.photo-wall {
+    position: relative;
+    min-height: 600px;
+    margin: 0 auto 40px;
+    perspective: 1000px;
+}
+
+.photo-item {
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    cursor: pointer;
+    border: 5px solid #fff;
+}
+
+.photo-item:hover {
+    transform: scale(1.05) rotate(0deg) !important;
+    z-index: 100;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
+}
+
+.photo-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.photo-item:hover img {
+    transform: scale(1.1);
+}
+
+.controls {
+    position: fixed;
+    top: 50%;
+    right: 30px;
+    transform: translateY(-50%);
+}
+
+.randomize-btn {
+    background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+    color: white;
+    border: none;
+    padding: 15px 25px;
+    border-radius: 50px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.randomize-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+    background: linear-gradient(135deg, #ee5a24, #ff6b6b);
+}
+
+.randomize-btn:active {
+    transform: translateY(0);
+}
+
+/* 布局动画 */
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes photoAppear {
+    from {
+        opacity: 0;
+        transform: scale(0.8) rotate(-15deg);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) rotate(var(--rotation));
+    }
+}
+
+.photo-item {
+    animation: photoAppear 0.8s ease-out forwards;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .main-title {
+        font-size: 3rem;
+    }
+    
+    .photo-wall {
+        min-height: 400px;
+    }
+    
+    .photo-item {
+        width: 150px;
+        height: 150px;
+    }
+    
+    .controls {
+        position: static;
+        transform: none;
+        margin-top: 20px;
+    }
+    
+    .randomize-btn {
+        padding: 12px 20px;
+        font-size: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .main-title {
+        font-size: 2.5rem;
+    }
+    
+    .photo-item {
+        width: 120px;
+        height: 120px;
+    }
+    
+    .container {
+        padding: 20px 15px;
+    }
+}
+
+/* 加载动画 */
+.loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

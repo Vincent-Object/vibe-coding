@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>扫雷游戏</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>扫雷游戏</h1>
+
+        <div class="controls">
+            <div class="difficulty">
+                <button class="difficulty-btn active" data-level="easy">简单 (9x9)</button>
+                <button class="difficulty-btn" data-level="medium">中等 (16x16)</button>
+                <button class="difficulty-btn" data-level="hard">困难 (16x30)</button>
+            </div>
+
+            <div class="game-info">
+                <div class="info-item">
+                    <span class="label">剩余雷数:</span>
+                    <span id="mineCount" class="value">10</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">时间:</span>
+                    <span id="timer" class="value">0</span>
+                </div>
+            </div>
+
+            <button id="restartBtn" class="restart-btn">重新开始</button>
+        </div>
+
+        <div id="gameBoard" class="game-board"></div>
+
+        <div id="gameOverModal" class="modal">
+            <div class="modal-content">
+                <h2 id="modalTitle"></h2>
+                <p id="modalMessage"></p>
+                <button id="modalRestartBtn" class="restart-btn">再玩一次</button>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="fireworksCanvas"></canvas>
+    <script src="fireworks.js"></script>
+    <script src="failure.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>

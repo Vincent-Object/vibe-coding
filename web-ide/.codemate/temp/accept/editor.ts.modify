@@ -1,0 +1,56 @@
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
+import type { FileItem } from '@/types'
+
+export const useEditorStore = defineStore('editor', () => {
+  const files = ref<FileItem[]>([])
+  const activeFileId = ref<string | null>(null)
+
+  const activeFile = computed(() => 
+    files.value.find(f => f.id === activeFileId.value) || null
+  )
+
+  const addFile = (name: string, content = '', language = 'javascript') => {
+    const file: FileItem = {
+      id: Date.now().toString(),
+      name,
+      path: `/${name}`,
+      content,
+      language,
+      isActive: false
+    }
+    files.value.push(file)
+    setActiveFile(file.id)
+  }
+
+  const setActiveFile = (fileId: string) => {
+    files.value.forEach(f => f.isActive = f.id === fileId)
+    activeFileId.value = fileId
+  }
+
+  const updateFileContent = (fileId: string, content: string) => {
+    const file = files.value.find(f => f.id === fileId)
+    if (file) {
+      file.content = content
+    }
+  }
+
+  const removeFile = (fileId: string) => {
+    const index = files.value.findIndex(f => f.id === fileId)
+    if (index !== -1) {
+      files.value.splice(index, 1)
+      if (activeFileId.value === fileId && files.value.length > 0) {
+        setActiveFile(files.value[0].id)
+      }
+    }
+  }
+
+  return {
+    files,
+    activeFile,
+    addFile,
+    setActiveFile,
+    updateFileContent,
+    removeFile
+  }
+})
