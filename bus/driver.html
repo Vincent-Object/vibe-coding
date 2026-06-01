@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>公交车驾驶员 - 小朋友乐园</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #111;
+  overflow: hidden;
+  font-family: 'SF Pro Display','Segoe UI',system-ui,sans-serif;
+}
+#driveView {
+  position: fixed;
+  inset: 0;
+  background: #111;
+}
+#driveCanvas {
+  width: 100%;
+  height: 100%;
+}
+.drive-back-btn {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  padding: 8px 22px;
+  border-radius: 20px;
+  border: 2px solid rgba(255,255,255,0.5);
+  background: rgba(0,0,0,0.5);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: all 0.2s;
+  text-decoration: none;
+}
+.drive-back-btn:hover {
+  background: rgba(255,255,255,0.2);
+}
+</style>
+<style>
+.hud-speed {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  background: rgba(0,0,0,0.6);
+  border-radius: 16px;
+  padding: 10px 20px;
+  color: #fff;
+  backdrop-filter: blur(8px);
+  z-index: 10;
+  border: 1px solid rgba(255,255,255,0.12);
+  display: none;
+}
+.hud-speed .label { font-size: 11px; opacity: 0.6; letter-spacing: 2px; }
+.hud-speed .value { font-size: 34px; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1; }
+.hud-speed .unit { font-size: 13px; font-weight: 400; margin-left: 4px; }
+.hud-dist {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: rgba(0,0,0,0.6);
+  border-radius: 16px;
+  padding: 10px 20px;
+  color: #fff;
+  backdrop-filter: blur(8px);
+  z-index: 10;
+  border: 1px solid rgba(255,255,255,0.12);
+  display: none;
+}
+.hud-dist .label { font-size: 11px; opacity: 0.6; letter-spacing: 2px; }
+.hud-dist .value { font-size: 34px; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1; }
+.hud-dist .unit { font-size: 13px; font-weight: 400; margin-left: 4px; }
+.hud-fork {
+  position: absolute;
+  top: 15%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg,rgba(255,152,0,0.9),rgba(255,87,34,0.9));
+  color: #fff;
+  padding: 12px 32px;
+  border-radius: 14px;
+  font-size: 20px;
+  font-weight: 800;
+  z-index: 10;
+  box-shadow: 0 4px 24px rgba(255,152,0,0.5);
+  animation: fp .6s ease-in-out infinite alternate;
+  display: none;
+}
+.touch-controls {
+  position: absolute;
+  bottom: 18px;
+  left: 18px;
+  z-index: 10;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.touch-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.18);
+  border: 2px solid rgba(255,255,255,0.4);
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+.touch-btn-gas { background: rgba(76,175,80,0.35); }
+.touch-btn-brake { background: rgba(244,67,54,0.35); }
+.touch-row { display: flex; gap: 6px; }
+.start-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg,rgba(0,0,0,0.2),rgba(0,0,0,0.75));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 30;
+  color: #fff;
+  gap: 16px;
+}
+.start-overlay .title {
+  font-size: 52px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  text-shadow: 0 4px 30px rgba(33,150,243,0.7);
+  color: #64B5F6;
+}
+.start-overlay .instructions {
+  font-size: 15px;
+  opacity: 0.85;
+  text-align: center;
+  line-height: 2.0;
+  background: rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 14px 28px;
+}
+.start-overlay .start-btn {
+  margin-top: 6px;
+  padding: 14px 56px;
+  font-size: 22px;
+  font-weight: 800;
+  background: linear-gradient(135deg,#1565C0,#42A5F5);
+  color: #fff;
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  box-shadow: 0 6px 30px rgba(33,150,243,0.5);
+  letter-spacing: 2px;
+}
+@keyframes fp {
+  from { opacity: .85; transform: translateX(-50%) scale(.97); }
+  to { opacity: 1; transform: translateX(-50%) scale(1.04); }
+}
+</style>
+</head>
+<body>
+<div id="driveView">
+  <div id="driveCanvas"></div>
+  <a class="drive-back-btn" href="index.html">⬅ 返回管理站</a>
+  <div class="hud-speed" id="hudSpeed">
+    <div class="label">速度</div>
+    <div><span class="value" id="hudSpeedVal">0</span><span class="unit">km/h</span></div>
+  </div>
+  <div class="hud-dist" id="hudDist">
+    <div class="label">里程</div>
+    <div><span class="value" id="hudDistVal">0</span><span class="unit">m</span></div>
+  </div>
+  <div class="hud-fork" id="hudFork">⚠️ 前方分叉路口！</div>
+  <div class="touch-controls" id="touchControls">
+    <div class="touch-btn touch-btn-gas" id="btnGas">▲</div>
+    <div class="touch-row">
+      <div class="touch-btn" id="btnLeft">◀</div>
+      <div class="touch-btn touch-btn-brake" id="btnBrake">▼</div>
+      <div class="touch-btn" id="btnRight">▶</div>
+    </div>
+  </div>
+  <div class="start-overlay" id="startOverlay">
+    <div class="title" id="gameTitle">🚌 公交车驾驶员</div>
+    <div class="instructions">
+      <b style="color:#81D4FA">⬆ W</b> 加速 &nbsp;&nbsp; <b style="color:#EF9A9A">⬇ S</b> 刹车<br>
+      <b style="color:#A5D6A7">⬅ A</b> 左转 &nbsp;&nbsp; <b style="color:#FFE082">➡ D</b> 右转<br>
+      遇到路口选择方向！触屏可用左下角按钮
+    </div>
+    <button class="start-btn" id="startDriveBtn">出发 🚌</button>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════
+   公交车驾驶游戏 (从 bus-game.jsx 转换为原生JS)
+   ═══════════════════════════════════════════════ */
+var ROAD_W = 13;
+var SIDEWALK_W = 3;
+var TILE_LEN = 12;
+var POOL = 60;
+
+function rand(a, b) { return a + Math.random() * (b - a); }
+function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
+
+// Helper: create mesh and set position (Object.assign can't overwrite .position in r128)
+function mp(mesh, x, y, z) { mesh.position.set(x, y, z); return mesh; }
+
+/* ═══ BUS MODEL ═══ */
+function makeBus() {
+  var g = new THREE.Group();
+  var m = function(c) { return new THREE.MeshLambertMaterial({ color: c }); };
+  var gl = function(c, o) { return new THREE.MeshLambertMaterial({ color: c, transparent: true, opacity: o || 0.45 }); };
+  // chassis
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.8, 9), m(0x1565C0)), 0, 0.8, 0));
+  // upper body
+  var upper = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.2, 8.8), m(0x1E88E5));
+  upper.position.y = 2.3; upper.castShadow = true; g.add(upper);
+  // roof
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.2, 8.4), m(0x0D47A1)), 0, 3.5, 0));
+  // windshield
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(2.8, 1.6, 0.1), gl(0x90CAF9)), 0, 2.5, -4.5));
+  // rear window
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.2, 0.1), gl(0x90CAF9)), 0, 2.6, 4.5));
+  // side windows
+  for (var s = -1; s <= 1; s += 2)
+    for (var i = -3.2; i <= 3.2; i += 1.6)
+      g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.1, 1.1), gl(0xBBDEFB, 0.5)), s * 1.65, 2.6, i));
+  // wheels
+  var wG = new THREE.CylinderGeometry(0.52, 0.52, 0.45, 14);
+  var wM = m(0x222222);
+  var wP = [[-1.7, 0.52, -3.2], [1.7, 0.52, -3.2], [-1.7, 0.52, 3.2], [1.7, 0.52, 3.2]];
+  var wheels = [];
+  wP.forEach(function(p) {
+    var wh = new THREE.Mesh(wG, wM); wh.rotation.z = Math.PI / 2;
+    wh.position.set(p[0], p[1], p[2]); g.add(wh); wheels.push(wh);
+    var hub = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.46, 8), m(0x999999));
+    hub.rotation.z = Math.PI / 2; hub.position.set(p[0], p[1], p[2]); g.add(hub);
+  });
+  // headlights
+  [-1, 1].forEach(function(hs) {
+    g.add(mp(new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 8), new THREE.MeshBasicMaterial({ color: 0xFFF9C4 })), hs * 1.1, 1.3, -4.55));
+  });
+  // taillights
+  [-1, 1].forEach(function(ts) {
+    g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.35, 0.1), new THREE.MeshBasicMaterial({ color: 0xff1744 })), ts * 1.1, 1.3, 4.55));
+  });
+  // bumper
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.45, 0.3), m(0xBDBDBD)), 0, 0.6, -4.6));
+  // route sign
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(2, 0.5, 0.08), m(0xFF8F00)), 0, 3.65, -4.3));
+  g.userData.wheels = wheels;
+  return g;
+}
+
+/* ═══ SCENERY FACTORIES ═══ */
+function makeTree() {
+  var g = new THREE.Group();
+  var h = rand(3, 7);
+  g.add(mp(new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.35, h * 0.45, 6), new THREE.MeshLambertMaterial({ color: 0x6D4C41 })), 0, h * 0.22, 0));
+  g.add(mp(new THREE.Mesh(new THREE.CylinderGeometry(0, rand(1.5, 3), h * 0.65, 7), new THREE.MeshLambertMaterial({ color: new THREE.Color().setHSL(rand(0.25, 0.4), 0.7, rand(0.3, 0.5)) })), 0, h * 0.65, 0));
+  return g;
+}
+
+function makeBuilding() {
+  var g = new THREE.Group();
+  var h = rand(6, 22), w = rand(5, 12), d = rand(5, 10);
+  var body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color: new THREE.Color().setHSL(rand(0, 1), rand(0.15, 0.5), rand(0.5, 0.75)) }));
+  body.position.y = h / 2; body.castShadow = true; g.add(body);
+  var winM = new THREE.MeshBasicMaterial({ color: 0xFFF9C4 });
+  for (var wy = 2; wy < h - 1; wy += 2.2)
+    for (var wx = -w / 2 + 1.2; wx < w / 2 - 0.5; wx += 1.8)
+      if (Math.random() > 0.3) g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.9, 0.1), winM), wx, wy, d / 2 + 0.06));
+  return g;
+}
+
+function makePole() {
+  var g = new THREE.Group();
+  g.add(mp(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 5, 6), new THREE.MeshLambertMaterial({ color: 0x78909C })), 0, 2.5, 0));
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.08, 0.08), new THREE.MeshLambertMaterial({ color: 0x78909C })), -0.9, 4.9, 0));
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.25, 0.3), new THREE.MeshBasicMaterial({ color: 0xFFEE58 })), -1.8, 4.8, 0));
+  return g;
+}
+
+function makeMarker() {
+  var g = new THREE.Group();
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.0, 0.15), new THREE.MeshLambertMaterial({ color: 0xffffff })), 0, 0.5, 0));
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.25, 0.18), new THREE.MeshBasicMaterial({ color: 0xff5722 })), 0, 0.85, 0));
+  return g;
+}
+
+/* ═══ INIT GAME ═══ */
+function initGame() {
+  var el = document.getElementById('driveCanvas');
+  var W = el.clientWidth, H = el.clientHeight;
+
+  // Scene
+  var scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x7EC8E3);
+  scene.fog = new THREE.Fog(0x7EC8E3, 100, 380);
+
+  var camera = new THREE.PerspectiveCamera(58, W / H, 0.5, 500);
+  var renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(W, H);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  el.appendChild(renderer.domElement);
+
+  // Lights
+  scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+  var sun = new THREE.DirectionalLight(0xffeedd, 1.0);
+  sun.position.set(60, 120, -40); sun.castShadow = true;
+  sun.shadow.camera.left = -80; sun.shadow.camera.right = 80;
+  sun.shadow.camera.top = 80; sun.shadow.camera.bottom = -80;
+  sun.shadow.mapSize.set(1024, 1024);
+  scene.add(sun);
+  scene.add(new THREE.HemisphereLight(0x87CEEB, 0x558B2F, 0.35));
+
+  // Ground
+  var ground = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000), new THREE.MeshLambertMaterial({ color: 0x558B2F }));
+  ground.rotation.x = -Math.PI / 2; ground.position.y = -0.02; ground.receiveShadow = true;
+  scene.add(ground);
+
+  // Materials
+  var roadMat = new THREE.MeshLambertMaterial({ color: 0x37474F });
+  var swMat = new THREE.MeshLambertMaterial({ color: 0x9E9E9E });
+  var curbMat = new THREE.MeshLambertMaterial({ color: 0xBDBDBD });
+  var dashMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  var edgeMat = new THREE.MeshBasicMaterial({ color: 0xFFD600 });
+
+  // ── Road Tile Pool ──
+  function makeTile() {
+    var g = new THREE.Group();
+    var surf = new THREE.Mesh(new THREE.BoxGeometry(ROAD_W, 0.18, TILE_LEN), roadMat);
+    surf.position.y = 0.09; surf.receiveShadow = true; g.add(surf);
+    // sidewalks
+    [-1, 1].forEach(function(s) {
+      var sw = new THREE.Mesh(new THREE.BoxGeometry(SIDEWALK_W, 0.3, TILE_LEN), swMat);
+      sw.position.set(s * (ROAD_W / 2 + SIDEWALK_W / 2), 0.15, 0); g.add(sw);
+      var cu = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.4, TILE_LEN), curbMat);
+      cu.position.set(s * (ROAD_W / 2 + 0.12), 0.2, 0); g.add(cu);
+    });
+    // center dashes
+    for (var d = -TILE_LEN / 2 + 1; d < TILE_LEN / 2; d += 3) {
+      var da = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.02, 1.8), dashMat);
+      da.position.set(0, 0.19, d); g.add(da);
+    }
+    // lane lines (two lanes each direction = 4 lanes total)
+    [-ROAD_W / 4, ROAD_W / 4].forEach(function(lane) {
+      for (var d2 = -TILE_LEN / 2 + 2; d2 < TILE_LEN / 2; d2 += 4) {
+        var ll = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.02, 1.2), dashMat);
+        ll.position.set(lane, 0.19, d2); g.add(ll);
+      }
+    });
+    // edge lines
+    [-1, 1].forEach(function(s) {
+      var ed = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.02, TILE_LEN), edgeMat);
+      ed.position.set(s * (ROAD_W / 2 - 0.5), 0.19, 0); g.add(ed);
+    });
+    return g;
+  }
+
+  var tiles = [];
+  var tileScenery = new Map();
+  for (var i = 0; i < POOL; i++) {
+    var t = makeTile();
+    var wz = -(i - 10) * TILE_LEN;
+    t.position.set(0, 0, wz);
+    scene.add(t);
+    tiles.push({ mesh: t, wz: wz });
+  }
+
+  // Scenery for a tile
+  function spawnScenery(tile) {
+    var objs = [];
+    var z = tile.wz;
+    // markers both sides (every tile)
+    [-1, 1].forEach(function(s) {
+      var mk = makeMarker();
+      mk.position.set(s * (ROAD_W / 2 + SIDEWALK_W + 0.5), 0, z);
+      scene.add(mk); objs.push(mk);
+    });
+    // trees - DENSE, close to road
+    [-1, 1].forEach(function(s) {
+      // near tree
+      if (Math.random() > 0.15) {
+        var tr = makeTree();
+        tr.position.set(s * (ROAD_W / 2 + SIDEWALK_W + rand(1.5, 6)), 0, z + rand(-5, 5));
+        scene.add(tr); objs.push(tr);
+      }
+      // far tree
+      if (Math.random() > 0.3) {
+        var tr2 = makeTree();
+        tr2.position.set(s * (ROAD_W / 2 + SIDEWALK_W + rand(7, 20)), 0, z + rand(-5, 5));
+        scene.add(tr2); objs.push(tr2);
+      }
+    });
+    // street lights every ~3 tiles
+    if (Math.round(z / TILE_LEN) % 3 === 0) {
+      [-1, 1].forEach(function(s) {
+        var p = makePole();
+        p.position.set(s * (ROAD_W / 2 + SIDEWALK_W - 0.3), 0, z);
+        p.rotation.y = s < 0 ? 0 : Math.PI;
+        scene.add(p); objs.push(p);
+      });
+    }
+    // buildings
+    [-1, 1].forEach(function(s) {
+      if (Math.random() > 0.4) {
+        var b = makeBuilding();
+        b.position.set(s * (ROAD_W / 2 + SIDEWALK_W + rand(12, 35)), 0, z + rand(-4, 4));
+        scene.add(b); objs.push(b);
+      }
+    });
+    tileScenery.set(tile, objs);
+  }
+
+  function clearScenery(tile) {
+    var objs = tileScenery.get(tile);
+    if (objs) { objs.forEach(function(o) { scene.remove(o); }); tileScenery.delete(tile); }
+  }
+
+  // Initial scenery
+  tiles.forEach(function(t) { spawnScenery(t); });
+
+  // Fork visuals
+  var forkGroup = null, forkActive = false, forkZ = 0, nextForkDist = 200;
+
+  function spawnFork(z) {
+    var fg = new THREE.Group();
+    var bAngle = 0.4;
+    [-1, 1].forEach(function(dir) {
+      for (var i = 1; i <= 6; i++) {
+        var seg = new THREE.Mesh(new THREE.BoxGeometry(ROAD_W * 0.7, 0.16, TILE_LEN * 0.8), roadMat);
+        seg.position.set(dir * Math.sin(bAngle) * i * TILE_LEN * 0.7, 0.08,
+          z - Math.cos(bAngle) * i * TILE_LEN * 0.7 - TILE_LEN);
+        seg.rotation.y = -dir * bAngle;
+        fg.add(seg);
+      }
+    });
+    // road arrows
+    [-1, 1].forEach(function(dir) {
+      var arr = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.04, 3.5),
+        new THREE.MeshBasicMaterial({ color: dir < 0 ? 0x4CAF50 : 0xFF9800 }));
+      arr.position.set(dir * 2.8, 0.2, z + 5);
+      arr.rotation.y = -dir * 0.2;
+      fg.add(arr);
+    });
+    // sign post
+    var sp = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 6, 6),
+      new THREE.MeshLambertMaterial({ color: 0x555555 }));
+    sp.position.set(ROAD_W / 2 + SIDEWALK_W + 1.5, 3, z + 8);
+    fg.add(sp);
+    var board = new THREE.Mesh(new THREE.BoxGeometry(3.5, 2.2, 0.15),
+      new THREE.MeshLambertMaterial({ color: 0x1565C0 }));
+    board.position.set(ROAD_W / 2 + SIDEWALK_W + 1.5, 5.5, z + 8);
+    fg.add(board);
+    // arrows on sign
+    [-1, 1].forEach(function(dir) {
+      var a = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.35, 0.02),
+        new THREE.MeshBasicMaterial({ color: dir < 0 ? 0x66BB6A : 0xFFA726 }));
+      a.position.set(ROAD_W / 2 + SIDEWALK_W + 1.5 + dir * 0.5, 5.5 + dir * 0.25, z + 7.9);
+      a.rotation.z = dir * 0.4;
+      fg.add(a);
+    });
+    scene.add(fg);
+    return fg;
+  }
+
+  // Bus
+  var bus = makeBus();
+  scene.add(bus);
+
+  // Clouds
+  var cloudM = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
+  for (var ci = 0; ci < 25; ci++) {
+    var c = new THREE.Mesh(new THREE.SphereGeometry(rand(6, 18), 7, 5), cloudM);
+    c.scale.set(rand(1, 3.5), 0.4, rand(0.8, 2));
+    c.position.set(rand(-250, 250), rand(50, 90), rand(-200, 200));
+    scene.add(c);
+  }
+
+  // ── Game State ──
+  var G = { px: 0, pz: 0, heading: 0, speed: 0, dist: 0, keys: {},
+    camPos: new THREE.Vector3(0, 9, 18) };
+
+  // Touch state
+  var touch = { steer: 0, gas: false, brake: false };
+
+  // ── Keyboard Events ──
+  var kd = function(e) {
+    G.keys[e.key] = true;
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].indexOf(e.key) !== -1) e.preventDefault();
+  };
+  var ku = function(e) { G.keys[e.key] = false; };
+  window.addEventListener('keydown', kd);
+  window.addEventListener('keyup', ku);
+
+  // ── Resize ──
+  var onR = function() {
+    W = el.clientWidth; H = el.clientHeight;
+    camera.aspect = W / H; camera.updateProjectionMatrix();
+    renderer.setSize(W, H);
+  };
+  window.addEventListener('resize', onR);
+
+  // ── Touch Controls ──
+  function setupTouchBtn(id, key, value, offValue) {
+    var btn = document.getElementById(id);
+    var setVal = function() { touch[key] = value; };
+    var clearVal = function() { touch[key] = offValue; };
+    btn.addEventListener('pointerdown', function(e) { e.preventDefault(); setVal(); });
+    btn.addEventListener('pointerup', clearVal);
+    btn.addEventListener('pointerleave', clearVal);
+    btn.addEventListener('pointercancel', clearVal);
+  }
+  setupTouchBtn('btnGas', 'gas', true, false);
+  setupTouchBtn('btnBrake', 'brake', true, false);
+  setupTouchBtn('btnLeft', 'steer', 1, 0);
+  setupTouchBtn('btnRight', 'steer', -1, 0);
+
+  // ── HUD elements ──
+  var hudSpeedEl = document.getElementById('hudSpeedVal');
+  var hudDistEl = document.getElementById('hudDistVal');
+  var hudForkEl = document.getElementById('hudFork');
+  var hudSpeedBox = document.getElementById('hudSpeed');
+  var hudDistBox = document.getElementById('hudDist');
+  var touchControlsEl = document.getElementById('touchControls');
+  var startOverlay = document.getElementById('startOverlay');
+
+  document.getElementById('startDriveBtn').addEventListener('click', function() {
+    startOverlay.style.display = 'none';
+    hudSpeedBox.style.display = 'block';
+    hudDistBox.style.display = 'block';
+    touchControlsEl.style.display = 'flex';
+  });
+
+  // ── Game Loop ──
+  var clock = new THREE.Clock();
+
+  function loop() {
+    requestAnimationFrame(loop);
+    var dt = Math.min(clock.getDelta(), 0.05);
+
+    // Speed
+    if (G.keys['ArrowUp'] || G.keys['w'] || touch.gas) G.speed = Math.min(G.speed + 5 * dt, 3.2);
+    else if (G.keys['ArrowDown'] || G.keys['s'] || touch.brake) G.speed = Math.max(G.speed - 7 * dt, -0.8);
+    else G.speed += (1.4 - G.speed) * dt * 1.0;
+
+    // Steer
+    var st = 0;
+    if (G.keys['ArrowLeft'] || G.keys['a']) st = 1;
+    if (G.keys['ArrowRight'] || G.keys['d']) st = -1;
+    if (touch.steer) st = touch.steer;
+    G.heading += st * 2.2 * dt * Math.min(Math.abs(G.speed), 1.5);
+
+    // Move
+    G.px -= Math.sin(G.heading) * G.speed;
+    G.pz -= Math.cos(G.heading) * G.speed;
+    G.dist += Math.abs(G.speed) * dt * 30;
+
+    // Bus
+    bus.position.set(G.px, 0, G.pz);
+    bus.rotation.y = G.heading;
+    bus.userData.wheels.forEach(function(w) { w.rotation.x += G.speed * 0.4; });
+
+    // ── Recycle tiles ──
+    tiles.forEach(function(t) {
+      var rel = t.wz - G.pz;
+      if (rel > (POOL / 2) * TILE_LEN) {
+        clearScenery(t);
+        t.wz -= POOL * TILE_LEN;
+        t.mesh.position.z = t.wz;
+        t.mesh.position.x = 0;
+        spawnScenery(t);
+      } else if (rel < -(POOL / 2) * TILE_LEN) {
+        clearScenery(t);
+        t.wz += POOL * TILE_LEN;
+        t.mesh.position.z = t.wz;
+        t.mesh.position.x = 0;
+        spawnScenery(t);
+      }
+    });
+
+    // ── Fork ──
+    nextForkDist -= Math.abs(G.speed) * dt * 30;
+    var nearFork = false;
+    if (nextForkDist <= 0 && !forkActive) {
+      forkZ = G.pz - 80;
+      forkGroup = spawnFork(forkZ);
+      forkActive = true;
+      nextForkDist = rand(250, 500);
+    }
+    if (forkActive && forkGroup) {
+      var fd = G.pz - forkZ;
+      nearFork = fd > -40 && fd < 15;
+      if (fd < -30) {
+        scene.remove(forkGroup); forkGroup = null; forkActive = false;
+      }
+    }
+
+    // Camera
+    var cd = 16, ch = 8;
+    var ideal = new THREE.Vector3(
+      G.px + Math.sin(G.heading) * cd, ch,
+      G.pz + Math.cos(G.heading) * cd
+    );
+    G.camPos.lerp(ideal, 0.065);
+    camera.position.copy(G.camPos);
+    camera.lookAt(G.px - Math.sin(G.heading) * 14, 2, G.pz - Math.cos(G.heading) * 14);
+
+    // Follow ground + sun
+    ground.position.x = G.px; ground.position.z = G.pz;
+    sun.position.set(G.px + 60, 120, G.pz - 40);
+    sun.target.position.set(G.px, 0, G.pz);
+    sun.target.updateMatrixWorld();
+
+    // Update HUD
+    hudSpeedEl.textContent = Math.abs(Math.round(G.speed * 32));
+    hudDistEl.textContent = Math.round(G.dist);
+    hudForkEl.style.display = nearFork ? 'block' : 'none';
+
+    renderer.render(scene, camera);
+  }
+  loop();
+}
+
+// Start the game when page loads
+initGame();
+</script>
+</body>
+</html>

@@ -220,6 +220,7 @@ canvas {
       <button class="btn" id="speedBtn">⚡ 加速 x2</button>
       <button class="btn" id="pauseBtn">⏸️ 暂停</button>
       <button class="btn" id="driveBusBtn" style="border-color:#42A5F5;background:rgba(66,165,245,0.15);">🎮 驾驶此车</button>
+      <button class="btn" id="cameraBtn">📷 跟拍:开</button>
     </div>
     <div class="panel-title">📋 车辆列表（点击选中）</div>
     <div id="busList"></div>
@@ -253,8 +254,12 @@ let time = 0;
 let speedMultiplier = 1;
 let paused = false;
 let selectedBusIdx = 0;
+let followMode = true;
 
 const ROAD_W = 140;
+
+let cameraX = W / 2;
+let cameraY = H / 2;
 
 let currentMapIndex = 0;
 
@@ -350,7 +355,12 @@ const maps = [
         isBranch: true
       }
     ],
-    trafficLights: [],
+    trafficLights: [
+      { x: 485, y: 310, dir: 'down', phase: 0, duration: 200 },
+      { x: 1115, y: 310, dir: 'down', phase: 50, duration: 200 },
+      { x: 485, y: 690, dir: 'down', phase: 100, duration: 200 },
+      { x: 1115, y: 690, dir: 'down', phase: 150, duration: 200 }
+    ],
     busStops: []
   }
 ];
@@ -398,7 +408,6 @@ let activeBuses = [];
 
 function createBus(data, pathIdx) {
   const pts = allPathPoints[pathIdx % allPathPoints.length];
-  const laneOffset = (Math.random() > 0.5 ? 1 : -1) * (ROAD_W * 0.25);
   return {
     ...data,
     pathIdx: pathIdx,
@@ -416,7 +425,7 @@ function createBus(data, pathIdx) {
     freeY: 0,
     freeAngle: 0,
     turnSpeed: 0,
-    laneOffset: laneOffset
+    laneOffset: ROAD_W * 0.28
   };
 }
 
@@ -454,7 +463,7 @@ function getPosOnPath(bus) {
   }
 
   const angle = getAngle(bus);
-  const perpAngle = angle + Math.PI / 2;
+  const perpAngle = angle - Math.PI / 2;
   const offset = bus.laneOffset;
 
   return {
@@ -879,7 +888,7 @@ function switchMap(newIndex) {
     bus.freeX = 0;
     bus.freeY = 0;
     bus.freeAngle = 0;
-    bus.laneOffset = (Math.random() > 0.5 ? 1 : -1) * (ROAD_W * 0.25);
+    bus.laneOffset = ROAD_W * 0.28;
   }
 
   selectedBusIdx = 0;
@@ -992,7 +1001,19 @@ document.addEventListener('keyup', (e) => {
 function animate() {
   updateBuses();
 
+  if (followMode && activeBuses.length > 0) {
+    const bus = activeBuses[selectedBusIdx];
+    const pos = getPosOnPath(bus);
+    const targetX = pos.x;
+    const targetY = pos.y;
+    cameraX += (targetX - cameraX) * 0.08;
+    cameraY += (targetY - cameraY) * 0.08;
+  }
+
   ctx.clearRect(0, 0, W, H);
+
+  ctx.save();
+  ctx.translate(W / 2 - cameraX, H / 2 - cameraY);
 
   drawGrass();
   drawBuildings();
@@ -1007,6 +1028,8 @@ function animate() {
   for (let i = 0; i < activeBuses.length; i++) {
     drawSmallBus(activeBuses[i], i === selectedBusIdx);
   }
+
+  ctx.restore();
 
   if (time % 20 === 0) renderSidePanel();
 
@@ -1033,6 +1056,15 @@ document.getElementById('speedBtn').addEventListener('click', function() {
 document.getElementById('pauseBtn').addEventListener('click', function() {
   paused = !paused;
   this.textContent = paused ? '▶️ 继续' : '⏸️ 暂停';
+});
+
+document.getElementById('cameraBtn').addEventListener('click', function() {
+  followMode = !followMode;
+  this.textContent = followMode ? '📷 跟拍:开' : '📷 跟拍:关';
+  if (!followMode) {
+    cameraX = W / 2;
+    cameraY = H / 2;
+  }
 });
 
 renderMapSelector();
