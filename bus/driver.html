@@ -300,6 +300,345 @@ function makeMarker() {
   return g;
 }
 
+function makeBusStop() {
+  var g = new THREE.Group();
+  var sm = function(c) { return new THREE.MeshLambertMaterial({ color: c }); };
+  var gm = new THREE.MeshLambertMaterial({ color: 0xBBDEFB, transparent: true, opacity: 0.42 });
+  var sW = 4.0, sH = 2.8, sD = 1.6;
+  // Front poles (road-facing side, X=0 in group space)
+  [-sW/2 + 0.25, sW/2 - 0.25].forEach(function(z) {
+    g.add(mp(new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, sH, 6), sm(0x90A4AE)), 0, sH/2, z));
+  });
+  // Roof canopy (blue)
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(sD + 0.5, 0.16, sW + 0.4), sm(0x1565C0)), sD/2, sH + 0.08, 0));
+  // Back wall glass (at X=sD)
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.07, sH - 0.15, sW), gm), sD, sH/2, 0));
+  // Side glass panels
+  [-sW/2, sW/2].forEach(function(z) {
+    g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(sD, sH - 0.35, 0.07), gm), sD/2, sH/2, z));
+  });
+  // Bench seat
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.1, sW - 0.6), sm(0x795548)), sD - 0.22, 1.05, 0));
+  // Bench legs
+  [-sW/2 + 0.45, sW/2 - 0.45].forEach(function(z) {
+    g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.95, 0.08), sm(0x555555)), sD - 0.22, 0.52, z));
+  });
+  // Sign pole (at one end)
+  var signZ = sW/2 + 0.55;
+  g.add(mp(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 3.8, 6), sm(0x607D8B)), 0, 1.9, signZ));
+  // Sign board (orange)
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.85, 0.85), sm(0xF57C00)), 0, 3.72, signZ));
+  // White icon on sign
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.45, 0.45), new THREE.MeshBasicMaterial({ color: 0xffffff })), 0.06, 3.72, signZ));
+  return g;
+}
+
+function makePassenger() {
+  var g = new THREE.Group();
+  var palette = [0xFF8A65, 0xF48FB1, 0x90CAF9, 0xA5D6A7, 0xFFE082, 0xCE93D8, 0x80DEEA];
+  var bodyColor = palette[Math.floor(Math.random() * palette.length)];
+  var sm = function(c) { return new THREE.MeshLambertMaterial({ color: c }); };
+  g.add(mp(new THREE.Mesh(new THREE.SphereGeometry(0.22, 7, 7), sm(0xFFCC80)), 0, 1.62, 0));
+  g.add(mp(new THREE.Mesh(new THREE.SphereGeometry(0.23, 7, 5), sm(Math.random() > 0.5 ? 0x3E2723 : 0xFDD835)), 0, 1.79, 0));
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.55, 0.2), sm(bodyColor)), 0, 1.1, 0));
+  [-0.1, 0.1].forEach(function(x) {
+    g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.52, 0.17), sm(0x37474F)), x, 0.62, 0));
+  });
+  [-0.26, 0.26].forEach(function(x) {
+    g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.44, 0.14), sm(bodyColor)), x, 1.1, 0));
+  });
+  g.scale.set(0.85, 0.85, 0.85);
+  return g;
+}
+
+/* ═══ NPC VEHICLES ═══ */
+function makeCar() {
+  var g = new THREE.Group();
+  var cols = [0xE53935, 0x1E88E5, 0x43A047, 0xFFB300, 0x8E24AA, 0xF4511E, 0xEEEEEE, 0x212121, 0x00838F];
+  var col = cols[Math.floor(Math.random() * cols.length)];
+  var m = function(c) { return new THREE.MeshLambertMaterial({ color: c }); };
+  var gl = new THREE.MeshLambertMaterial({ color: 0xB3E5FC, transparent: true, opacity: 0.5 });
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.58, 4.4), m(col)), 0, 0.55, 0));
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.72, 2.4), m(col)), 0, 1.26, 0.1));
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.58, 0.07), gl), 0, 1.26, -1.28));
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.58, 0.07), gl), 0, 1.26, 1.31));
+  [[-1.0, 0.4, -1.5], [1.0, 0.4, -1.5], [-1.0, 0.4, 1.5], [1.0, 0.4, 1.5]].forEach(function(p) {
+    var w = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.3, 10), m(0x222222));
+    w.rotation.z = Math.PI / 2; w.position.set(p[0], p[1], p[2]); g.add(w);
+  });
+  [-0.6, 0.6].forEach(function(x) {
+    g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.2, 0.07), new THREE.MeshBasicMaterial({ color: 0xFFF9C4 })), x, 0.7, -2.25));
+    g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.2, 0.07), new THREE.MeshBasicMaterial({ color: 0xFF1744 })), x, 0.7, 2.25));
+  });
+  return g;
+}
+
+function makeRouteSign(routeNum) {
+  var canvas = document.createElement('canvas');
+  canvas.width = 128; canvas.height = 48;
+  var ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#FF8F00';
+  ctx.fillRect(0, 0, 128, 48);
+  ctx.fillStyle = '#CC0000';
+  ctx.font = 'bold 30px Arial, "Microsoft YaHei", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  // Pre-mirror so it reads correctly after the bus rotation.y = Math.PI flip
+  ctx.save();
+  ctx.translate(128, 0);
+  ctx.scale(-1, 1);
+  ctx.fillText(String(routeNum), 64, 26);
+  ctx.restore();
+  var tex = new THREE.CanvasTexture(canvas);
+  var sign = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.75),
+    new THREE.MeshBasicMaterial({ map: tex }));
+  sign.rotation.y = Math.PI; // canonical front face faces world +Z (toward player)
+  sign.position.set(0, 3.48, -4.0); // front-top of bus in local coords
+  return sign;
+}
+
+function makeNPCBus(routeNum) {
+  var g = new THREE.Group();
+  var cols = [0xC62828, 0x00695C, 0x283593, 0xE65100, 0x4A148C];
+  var col = cols[Math.floor(Math.random() * cols.length)];
+  var m = function(c) { return new THREE.MeshLambertMaterial({ color: c }); };
+  var gl = new THREE.MeshLambertMaterial({ color: 0x90CAF9, transparent: true, opacity: 0.45 });
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.72, 8.8), m(col)), 0, 0.7, 0));
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(3.0, 2.1, 8.6), m(col)), 0, 2.15, 0));
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.16, 8.2), m(0x0D47A1)), 0, 3.3, 0));
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.5, 0.07), gl), 0, 2.3, -4.4));
+  for (var s = -1; s <= 1; s += 2)
+    for (var i = -3.0; i <= 3.0; i += 1.5)
+      g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.07, 1.0, 1.1), gl), s * 1.57, 2.3, i));
+  [[-1.55, 0.52, -3.0], [1.55, 0.52, -3.0], [-1.55, 0.52, 3.0], [1.55, 0.52, 3.0]].forEach(function(p) {
+    var w = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.52, 0.42, 12), m(0x222222));
+    w.rotation.z = Math.PI / 2; w.position.set(p[0], p[1], p[2]); g.add(w);
+  });
+  [-0.9, 0.9].forEach(function(x) {
+    g.add(mp(new THREE.Mesh(new THREE.SphereGeometry(0.2, 6, 6), new THREE.MeshBasicMaterial({ color: 0xFFF9C4 })), x, 1.1, -4.5));
+    g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.28, 0.07), new THREE.MeshBasicMaterial({ color: 0xFF1744 })), x, 1.1, 4.5));
+  });
+  if (routeNum) g.add(makeRouteSign(routeNum));
+  return g;
+}
+
+function makeDumpTruck() {
+  var g = new THREE.Group();
+  var m = function(c) { return new THREE.MeshLambertMaterial({ color: c }); };
+  // Cab
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(2.5, 2.1, 3.2), m(0xF57F17)), 0, 1.35, -3.2));
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.1, 0.07), new THREE.MeshLambertMaterial({ color: 0x90CAF9, transparent: true, opacity: 0.5 })), 0, 2.0, -4.8));
+  // Chassis + dump bed
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.32, 9.2), m(0x37474F)), 0, 0.38, -0.4));
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.28, 5.5), m(0x546E7A)), 0, 0.62, 0.8));
+  [-1, 1].forEach(function(s) {
+    g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.17, 1.3, 5.5), m(0x607D8B)), s * 1.17, 1.45, 0.8));
+  });
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.3, 0.17), m(0x607D8B)), 0, 1.45, 3.6));
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(2.16, 0.85, 5.16), m(0x6D4C41)), 0, 1.48, 0.8));
+  // Wheels (6)
+  [[-1.3, 0.55, -3.0], [1.3, 0.55, -3.0], [-1.3, 0.55, 0.5], [1.3, 0.55, 0.5], [-1.3, 0.55, 2.5], [1.3, 0.55, 2.5]].forEach(function(p) {
+    var w = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.42, 10), m(0x222222));
+    w.rotation.z = Math.PI / 2; w.position.set(p[0], p[1], p[2]); g.add(w);
+  });
+  [-0.9, 0.9].forEach(function(x) {
+    g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.28, 0.07), new THREE.MeshBasicMaterial({ color: 0xFFF9C4 })), x, 1.6, -4.85));
+  });
+  return g;
+}
+
+function makeHeavyTruck() {
+  var g = new THREE.Group();
+  var m = function(c) { return new THREE.MeshLambertMaterial({ color: c }); };
+  var cabCols = [0xB71C1C, 0x1A237E, 0x1B5E20, 0x4A148C, 0xE65100];
+  var cabCol = cabCols[Math.floor(Math.random() * cabCols.length)];
+  // Cab
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.6, 3.8), m(cabCol)), 0, 1.55, -6.0));
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.28, 1.5, 3.8), m(0x424242)), 0, 3.55, -6.0));
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(2.3, 1.6, 0.07), new THREE.MeshLambertMaterial({ color: 0x90CAF9, transparent: true, opacity: 0.45 })), 0, 2.1, -8.0));
+  // Trailer
+  var trailerCol = pick([0xCFD8DC, 0xF5F5F5, 0xECEFF1]);
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.8, 9.6), m(trailerCol)), 0, 1.8, 0.8));
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.32, 14.2), m(0x37474F)), 0, 0.32, -1.0));
+  // Wheels (10)
+  [[-1.4, 0.6, -7.5], [1.4, 0.6, -7.5], [-1.4, 0.6, -4.5], [1.4, 0.6, -4.5],
+   [-1.4, 0.6, -1.5], [1.4, 0.6, -1.5], [-1.4, 0.6, 2.0], [1.4, 0.6, 2.0],
+   [-1.4, 0.6, 5.0], [1.4, 0.6, 5.0]].forEach(function(p) {
+    var w = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.42, 10), m(0x222222));
+    w.rotation.z = Math.PI / 2; w.position.set(p[0], p[1], p[2]); g.add(w);
+  });
+  [-0.9, 0.9].forEach(function(x) {
+    g.add(mp(new THREE.Mesh(new THREE.SphereGeometry(0.2, 6, 6), new THREE.MeshBasicMaterial({ color: 0xFFF9C4 })), x, 1.6, -8.1));
+  });
+  return g;
+}
+
+function makeCoach() {
+  var g = new THREE.Group();
+  var m = function(c) { return new THREE.MeshLambertMaterial({ color: c }); };
+  var gl = new THREE.MeshLambertMaterial({ color: 0xB3E5FC, transparent: true, opacity: 0.45 });
+  var baseCol = pick([0x1B5E20, 0x0D47A1, 0xBF360C, 0x311B92]);
+  // Body
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.68, 11.0), m(baseCol)), 0, 0.64, 0));
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(2.9, 2.3, 10.8), m(baseCol)), 0, 2.14, 0));
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.28, 11.2), m(0xFFFFFF)), 0, 1.58, 0));
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(2.7, 0.17, 10.4), m(baseCol)), 0, 3.34, 0));
+  // Windshield + side windows
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.3, 0.07), gl), 0, 2.3, -5.5));
+  for (var s2 = -1; s2 <= 1; s2 += 2)
+    for (var i2 = -4.5; i2 <= 4.5; i2 += 1.5)
+      g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.07, 1.0, 1.2), gl), s2 * 1.52, 2.3, i2));
+  // Wheels
+  [[-1.5, 0.58, -4.0], [1.5, 0.58, -4.0], [-1.5, 0.58, 4.0], [1.5, 0.58, 4.0]].forEach(function(p) {
+    var w = new THREE.Mesh(new THREE.CylinderGeometry(0.58, 0.58, 0.44, 12), m(0x222222));
+    w.rotation.z = Math.PI / 2; w.position.set(p[0], p[1], p[2]); g.add(w);
+  });
+  [-0.8, 0.8].forEach(function(x) {
+    g.add(mp(new THREE.Mesh(new THREE.SphereGeometry(0.2, 6, 6), new THREE.MeshBasicMaterial({ color: 0xFFF9C4 })), x, 1.2, -5.6));
+    g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.26, 0.07), new THREE.MeshBasicMaterial({ color: 0xFF1744 })), x, 1.2, 5.6));
+  });
+  return g;
+}
+
+function makeNPCVehicle(type, routeNum) {
+  if (type === 'car') return makeCar();
+  if (type === 'bus') return makeNPCBus(routeNum);
+  if (type === 'dump') return makeDumpTruck();
+  if (type === 'truck') return makeHeavyTruck();
+  if (type === 'coach') return makeCoach();
+  return makeCar();
+}
+
+function makePoliceCar() {
+  var g = new THREE.Group();
+  var m = function(c) { return new THREE.MeshLambertMaterial({ color: c }); };
+  var gl = new THREE.MeshLambertMaterial({ color: 0x90CAF9, transparent: true, opacity: 0.5 });
+  // Body
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.62, 4.4), m(0xF5F5F5)), 0, 0.55, 0));
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.7, 2.4), m(0xF5F5F5)), 0, 1.22, 0.1));
+  // Windshields
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.58, 0.07), gl), 0, 1.22, -1.28));
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.58, 0.07), gl), 0, 1.22, 1.31));
+  // Black door stripes
+  [-1, 1].forEach(function(s) {
+    g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.44, 3.8), m(0x111111)), s * 1.01, 0.6, 0.1));
+  });
+  // Wheels
+  [[-1.05, 0.42, -1.5], [1.05, 0.42, -1.5], [-1.05, 0.42, 1.5], [1.05, 0.42, 1.5]].forEach(function(p) {
+    var w = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.28, 10), m(0x222222));
+    w.rotation.z = Math.PI / 2; w.position.set(p[0], p[1], p[2]); g.add(w);
+  });
+  // Headlights + taillights
+  [-0.6, 0.6].forEach(function(x) {
+    g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.2, 0.07), new THREE.MeshBasicMaterial({ color: 0xFFF9C4 })), x, 0.7, -2.25));
+    g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.2, 0.07), new THREE.MeshBasicMaterial({ color: 0xFF1744 })), x, 0.7, 2.25));
+  });
+  // Light bar base
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.14, 0.58), m(0x222222)), 0, 1.64, 0.1));
+  // Red light (separate material for flashing)
+  var rMat = new THREE.MeshBasicMaterial({ color: 0xFF1111 });
+  var bMat = new THREE.MeshBasicMaterial({ color: 0x1111FF });
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.22, 0.48), rMat), -0.42, 1.8, 0.1));
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.22, 0.48), bMat),  0.42, 1.8, 0.1));
+  g.userData.rMat = rMat;
+  g.userData.bMat = bMat;
+  return g;
+}
+
+function makePoliceOfficer() {
+  var g = new THREE.Group();
+  var sm = function(c) { return new THREE.MeshLambertMaterial({ color: c }); };
+  g.add(mp(new THREE.Mesh(new THREE.SphereGeometry(0.22, 7, 7), sm(0xFFCC80)), 0, 1.62, 0));
+  g.add(mp(new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.12, 8), sm(0x1A237E)), 0, 1.87, 0));
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.06, 0.28), sm(0x1A237E)), 0, 1.81, -0.18));
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.55, 0.2), sm(0x1A237E)), 0, 1.1, 0));
+  [-0.1, 0.1].forEach(function(x) {
+    g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.52, 0.17), sm(0x0D1642)), x, 0.62, 0));
+  });
+  [-0.26, 0.26].forEach(function(x) {
+    g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.44, 0.14), sm(0x1A237E)), x, 1.1, 0));
+  });
+  g.scale.set(0.85, 0.85, 0.85);
+  return g;
+}
+
+function makeBusDriver() {
+  var g = new THREE.Group();
+  var sm = function(c) { return new THREE.MeshLambertMaterial({ color: c }); };
+  g.add(mp(new THREE.Mesh(new THREE.SphereGeometry(0.22, 7, 7), sm(0xFFCC80)), 0, 1.62, 0));
+  g.add(mp(new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.12, 8), sm(0xFFFFFF)), 0, 1.87, 0));
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.06, 0.28), sm(0xEEEEEE)), 0, 1.81, -0.18));
+  g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.55, 0.2), sm(0xEEEEEE)), 0, 1.1, 0));
+  [-0.1, 0.1].forEach(function(x) {
+    g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.52, 0.17), sm(0x37474F)), x, 0.62, 0));
+  });
+  [-0.26, 0.26].forEach(function(x) {
+    g.add(mp(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.44, 0.14), sm(0xEEEEEE)), x, 1.1, 0));
+  });
+  g.scale.set(0.85, 0.85, 0.85);
+  return g;
+}
+
+function makeZebraCrossing() {
+  var g = new THREE.Group();
+  var mat = new THREE.MeshBasicMaterial({ color: 0xF0F0F0 });
+  for (var i = -3.5; i <= 3.5; i += 1.5) {
+    var s = new THREE.Mesh(new THREE.BoxGeometry(ROAD_W, 0.02, 0.65), mat);
+    s.position.set(0, 0.20, i);
+    g.add(s);
+  }
+  return g;
+}
+
+function makeTrafficLightGantry() {
+  var g = new THREE.Group();
+  var metalMat = new THREE.MeshLambertMaterial({ color: 0x546E7A });
+  var poleH = 7.0;
+  var poleX = ROAD_W / 2 + 1.0;
+
+  // Vertical poles
+  [-poleX, poleX].forEach(function(px) {
+    var pole = new THREE.Mesh(new THREE.BoxGeometry(0.28, poleH, 0.28), metalMat);
+    pole.position.set(px, poleH / 2, 0);
+    g.add(pole);
+  });
+
+  // Horizontal beam
+  var beam = new THREE.Mesh(new THREE.BoxGeometry(poleX * 2 + 0.28, 0.28, 0.28), metalMat);
+  beam.position.set(0, poleH, 0);
+  g.add(beam);
+
+  // Light housing
+  var houseMat = new THREE.MeshLambertMaterial({ color: 0x212121 });
+  var house = new THREE.Mesh(new THREE.BoxGeometry(0.55, 1.9, 0.45), houseMat);
+  house.position.set(0, poleH - 1.0, 0);
+  g.add(house);
+
+  // Light bulbs — own materials so color can be changed per-instance
+  var rMat = new THREE.MeshBasicMaterial({ color: 0x3D0000 });
+  var yMat = new THREE.MeshBasicMaterial({ color: 0x3D3200 });
+  var gMat = new THREE.MeshBasicMaterial({ color: 0x003D16 });
+  var sphere = new THREE.SphereGeometry(0.16, 8, 8);
+  var rLight = new THREE.Mesh(sphere, rMat); rLight.position.set(0, poleH - 0.3, 0.23); g.add(rLight);
+  var yLight = new THREE.Mesh(sphere, yMat); yLight.position.set(0, poleH - 1.0, 0.23); g.add(yLight);
+  var gLight = new THREE.Mesh(sphere, gMat); gLight.position.set(0, poleH - 1.7, 0.23); g.add(gLight);
+
+  // Countdown display (canvas texture)
+  var cnv = document.createElement('canvas'); cnv.width = 64; cnv.height = 64;
+  var ctx = cnv.getContext('2d');
+  var tex = new THREE.CanvasTexture(cnv);
+  var cntMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.42, 0.42),
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false })
+  );
+  cntMesh.position.set(0, poleH - 1.0, 0.245);
+  g.add(cntMesh);
+
+  g.userData.mats = { red: rMat, yellow: yMat, green: gMat };
+  g.userData.cnv = cnv; g.userData.ctx = ctx; g.userData.tex = tex;
+  return g;
+}
+
 /* ═══ INIT GAME ═══ */
 function initGame() {
   var el = document.getElementById('driveCanvas');
@@ -338,6 +677,27 @@ function initGame() {
   var curbMat = new THREE.MeshLambertMaterial({ color: 0xBDBDBD });
   var dashMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
   var edgeMat = new THREE.MeshBasicMaterial({ color: 0xFFD600 });
+
+  // Bus stop & boarding state
+  var lastBusStopZ = 0;
+  var activeStops = [];
+  var pullOver = { active: false, parked: false, startX: 0, startSpeed: 0, elapsed: 0, duration: 2.0, targetX: ROAD_W / 2 - 2.0 };
+  var npcVehicles = [];
+  var npcSpawnTimer = 1.0;
+  var exitingPassengers = [];
+  var lastTrafficLightZ = 0;
+  var trafficLights = [];
+  var policeViolations = 0;
+  var police = { phase: 'idle', car: null, officers: [], driver: null, timer: 0, lightTimer: 0 };
+  // Load bus routes saved by index.html
+  var npcRoutes = (function() {
+    try {
+      var saved = JSON.parse(localStorage.getItem('dispatchBuses') || '[]');
+      var routes = saved.filter(function(b) { return b.route && b.route.trim(); })
+                        .map(function(b) { return b.route.trim(); });
+      return routes.length > 0 ? routes : ['1路', '2路', '5路', '10路', '22路', '68路'];
+    } catch(e) { return ['1路', '2路', '5路', '10路', '22路', '68路']; }
+  })();
 
   // ── Road Tile Pool ──
   function makeTile() {
@@ -423,12 +783,67 @@ function initGame() {
         scene.add(b); objs.push(b);
       }
     });
+    // bus stops: at least 400 world units apart (~200m), right sidewalk only
+    if (Math.abs(z - lastBusStopZ) >= 400 && Math.random() < 0.7) {
+      var stopZ = z + rand(-2, 2);
+      var stopX = ROAD_W / 2 + 1.1;
+      var bs = makeBusStop();
+      bs.position.set(stopX, 0, stopZ);
+      scene.add(bs); objs.push(bs);
+      lastBusStopZ = z;
+      var numPax = 1 + Math.floor(Math.random() * 4);
+      var paxList = [];
+      for (var pi = 0; pi < numPax; pi++) {
+        var pax = makePassenger();
+        pax.position.set(stopX - 0.8 + rand(-0.5, 0.3), 0, stopZ + rand(-1.8, 1.8));
+        pax.rotation.y = Math.PI / 2;
+        scene.add(pax);
+        paxList.push({ mesh: pax, state: 'waiting' });
+      }
+      activeStops.push({ tile: tile, worldX: stopX, worldZ: stopZ, passengers: paxList });
+    }
+    // Traffic lights: at least 500 world units apart
+    if (Math.abs(z - lastTrafficLightZ) >= 500 && Math.random() < 0.75) {
+      var lightZ = z + rand(-3, 3);
+      // Zebra crossing (player encounters it just before the stopline)
+      var zebra = makeZebraCrossing();
+      zebra.position.set(0, 0, lightZ + 4);
+      scene.add(zebra); objs.push(zebra);
+      // Gantry
+      var gantry = makeTrafficLightGantry();
+      gantry.position.set(0, 0, lightZ);
+      scene.add(gantry); objs.push(gantry);
+      lastTrafficLightZ = z;
+      var initState = Math.random() < 0.5 ? 'red' : 'green';
+      var initTimer = initState === 'red' ? rand(8, 25) : rand(6, 20);
+      var tl = {
+        tile: tile, worldZ: lightZ, state: initState, timer: initTimer,
+        mats: gantry.userData.mats,
+        ctx: gantry.userData.ctx, tex: gantry.userData.tex,
+        lastSec: -1, playerPassed: false
+      };
+      tl.mats.red.color.setHex(initState === 'red' ? 0xFF1744 : 0x3D0000);
+      tl.mats.yellow.color.setHex(0x3D3200);
+      tl.mats.green.color.setHex(initState === 'green' ? 0x00E676 : 0x003D16);
+      trafficLights.push(tl);
+    }
     tileScenery.set(tile, objs);
   }
 
   function clearScenery(tile) {
     var objs = tileScenery.get(tile);
     if (objs) { objs.forEach(function(o) { scene.remove(o); }); tileScenery.delete(tile); }
+    activeStops = activeStops.filter(function(stop) {
+      if (stop.tile === tile) {
+        stop.passengers.forEach(function(p) { scene.remove(p.mesh); });
+        return false;
+      }
+      return true;
+    });
+    trafficLights = trafficLights.filter(function(tl) {
+      if (tl.tile === tile) { tl.tex.dispose(); return false; }
+      return true;
+    });
   }
 
   // Initial scenery
@@ -492,8 +907,8 @@ function initGame() {
   }
 
   // ── Game State ──
-  var G = { px: 0, pz: 0, heading: 0, speed: 0, dist: 0, keys: {},
-    camPos: new THREE.Vector3(0, 9, 18) };
+  var G = { px: ROAD_W / 4, pz: 0, heading: 0, speed: 0, dist: 0, keys: {},
+    camPos: new THREE.Vector3(ROAD_W / 4, 9, 18) };
 
   // Touch state
   var touch = { steer: 0, gas: false, brake: false };
@@ -553,22 +968,282 @@ function initGame() {
     requestAnimationFrame(loop);
     var dt = Math.min(clock.getDelta(), 0.05);
 
-    // Speed
-    if (G.keys['ArrowUp'] || G.keys['w'] || touch.gas) G.speed = Math.min(G.speed + 5 * dt, 3.2);
-    else if (G.keys['ArrowDown'] || G.keys['s'] || touch.brake) G.speed = Math.max(G.speed - 7 * dt, -0.8);
-    else G.speed += (1.4 - G.speed) * dt * 1.0;
+    // Speed & Pull-over
+    var gasOn = G.keys['ArrowUp'] || G.keys['w'] || touch.gas;
+    var brakeOn = G.keys['ArrowDown'] || G.keys['s'] || touch.brake;
+    var controlsLocked = police.phase === 'decel' || police.phase === 'block' || police.phase === 'arrest' || police.phase === 'leave';
 
-    // Steer
+    // Traffic lights: update timers, visuals, countdown canvas, auto-brake target
+    var autoSpeedTarget = 1.0;
+    trafficLights.forEach(function(tl) {
+      tl.timer -= dt;
+      if (tl.timer <= 0) {
+        if (tl.state === 'red') { tl.state = 'green'; tl.timer = rand(12, 20); }
+        else if (tl.state === 'green') { tl.state = 'yellow'; tl.timer = 3.0; }
+        else { tl.state = 'red'; tl.timer = rand(15, 25); }
+        tl.lastSec = -1;
+        tl.mats.red.color.setHex(tl.state === 'red' ? 0xFF1744 : 0x3D0000);
+        tl.mats.yellow.color.setHex(tl.state === 'yellow' ? 0xFFD600 : 0x3D3200);
+        tl.mats.green.color.setHex(tl.state === 'green' ? 0x00E676 : 0x003D16);
+      }
+      var sec = Math.ceil(tl.timer);
+      if (sec !== tl.lastSec) {
+        tl.lastSec = sec;
+        var tlCtx = tl.ctx;
+        tlCtx.clearRect(0, 0, 64, 64);
+        tlCtx.fillStyle = tl.state === 'red' ? '#ff1744' : (tl.state === 'yellow' ? '#ffd600' : '#00e676');
+        tlCtx.font = 'bold 40px Arial';
+        tlCtx.textAlign = 'center';
+        tlCtx.textBaseline = 'middle';
+        tlCtx.fillText(sec > 0 ? String(sec) : '', 32, 32);
+        tl.tex.needsUpdate = true;
+      }
+      // Auto-brake: slow bus smoothly when red or yellow light is ahead
+      if (!gasOn && !pullOver.active && !pullOver.parked) {
+        if (tl.state === 'red' || tl.state === 'yellow') {
+          var dist = G.pz - tl.worldZ; // positive = light is ahead of bus
+          if (dist > 2 && dist < 80) {
+            autoSpeedTarget = Math.min(autoSpeedTarget, Math.max(0, (dist - 3) / 72));
+          }
+        }
+      }
+    });
+
+    if (controlsLocked) {
+      if (police.phase === 'decel') {
+        // smoothly decelerate to 0 — actual lerp is driven by police state machine below
+      } else {
+        G.speed = 0;
+      }
+    } else if (gasOn) {
+      G.speed = Math.min(G.speed + 3.5 * dt, 2.24);
+      pullOver.active = false;
+      pullOver.parked = false;
+    } else if (brakeOn && !pullOver.active && !pullOver.parked && G.speed > 0.05) {
+      pullOver.active = true;
+      pullOver.startX = G.px;
+      pullOver.startSpeed = G.speed;
+      pullOver.elapsed = 0;
+    } else if (pullOver.parked) {
+      // Parked: brake = reverse, release = coast to stop
+      if (brakeOn) {
+        G.speed = Math.max(G.speed - 2.8 * dt, -1.05);
+      } else if (G.speed < 0) {
+        G.speed = Math.min(G.speed + 3.5 * dt, 0);
+      }
+    } else if (!pullOver.active) {
+      G.speed += (autoSpeedTarget - G.speed) * dt * 1.0;
+    }
+
+    // Steer (disabled while pulling over or controls locked)
     var st = 0;
-    if (G.keys['ArrowLeft'] || G.keys['a']) st = 1;
-    if (G.keys['ArrowRight'] || G.keys['d']) st = -1;
-    if (touch.steer) st = touch.steer;
-    G.heading += st * 2.2 * dt * Math.min(Math.abs(G.speed), 1.5);
+    if (!controlsLocked && !pullOver.active) {
+      if (G.keys['ArrowLeft'] || G.keys['a']) st = 1;
+      if (G.keys['ArrowRight'] || G.keys['d']) st = -1;
+      if (touch.steer) st = touch.steer;
+      G.heading += st * 2.2 * dt * Math.min(Math.abs(G.speed), 1.5);
+    }
+    // Auto-center in right lane when not manually steering
+    if (!controlsLocked && !pullOver.active && !pullOver.parked && st === 0 && G.speed > 0.1) {
+      G.px += (ROAD_W / 4 - G.px) * dt * 0.6;
+    }
 
     // Move
-    G.px -= Math.sin(G.heading) * G.speed;
-    G.pz -= Math.cos(G.heading) * G.speed;
-    G.dist += Math.abs(G.speed) * dt * 30;
+    if (!controlsLocked && pullOver.active) {
+      pullOver.elapsed = Math.min(pullOver.elapsed + dt, pullOver.duration);
+      var t = pullOver.elapsed / pullOver.duration;
+      var ease = t * t * (3 - 2 * t);
+      G.speed = pullOver.startSpeed * (1 - ease);
+      G.px = pullOver.startX + (pullOver.targetX - pullOver.startX) * ease;
+      G.pz -= Math.cos(G.heading) * G.speed;
+      G.dist += Math.abs(G.speed) * dt * 30;
+      if (pullOver.elapsed >= pullOver.duration) {
+        G.speed = 0; pullOver.active = false; pullOver.parked = true;
+        // Spawn 0-4 disembarking passengers from the right door
+        var numExit = Math.floor(Math.random() * 5);
+        for (var ei = 0; ei < numExit; ei++) {
+          var ep = makePassenger();
+          ep.position.set(G.px + 1.8, 0, G.pz + rand(-3.5, 3.5));
+          ep.rotation.y = -Math.PI / 2; // face sidewalk (+X)
+          scene.add(ep);
+          exitingPassengers.push({ mesh: ep, targetX: ROAD_W / 2 + 1.2 });
+        }
+      }
+    } else if (!controlsLocked) {
+      G.px -= Math.sin(G.heading) * G.speed;
+      G.pz -= Math.cos(G.heading) * G.speed;
+      G.dist += Math.abs(G.speed) * dt * 30;
+    }
+
+    // ── Police violation detection ──
+    trafficLights.forEach(function(tl) {
+      if (!tl.playerPassed && G.pz < tl.worldZ) {
+        tl.playerPassed = true;
+        if (tl.state === 'red' && G.speed > 0.15 && police.phase === 'idle') {
+          policeViolations++;
+          if (policeViolations >= 3) {
+            var pcMesh = makePoliceCar();
+            var spawnZ = G.pz - 220;
+            pcMesh.position.set(ROAD_W / 4, 0, spawnZ);
+            pcMesh.rotation.y = Math.PI;
+            scene.add(pcMesh);
+            police.phase = 'chase';
+            police.car = { mesh: pcMesh, wz: spawnZ, speed: 1.8, startWz: 0, targetWz: 0, busStartSpeed: 0 };
+          }
+        }
+      }
+    });
+
+    // ── Police state machine ──
+    if (police.phase !== 'idle') {
+      police.lightTimer += dt;
+      if (police.car) {
+        var flash = Math.floor(police.lightTimer * 6) % 2 === 0;
+        police.car.mesh.userData.rMat.color.setHex(flash ? 0xFF1111 : 0x220000);
+        police.car.mesh.userData.bMat.color.setHex(flash ? 0x220000 : 0x1111FF);
+      }
+
+      if (police.phase === 'chase') {
+        police.car.wz += police.car.speed;
+        police.car.mesh.position.z = police.car.wz;
+        if (police.car.wz > G.pz - 30) {
+          police.phase = 'decel';
+          police.timer = 1.4;
+          police.car.startWz = police.car.wz;
+          police.car.targetWz = G.pz - 8;
+          police.car.busStartSpeed = G.speed;
+        }
+      }
+
+      if (police.phase === 'decel') {
+        police.timer = Math.max(0, police.timer - dt);
+        var decelT = 1 - police.timer / 1.4;
+        var decelE = decelT * decelT * (3 - 2 * decelT);
+        police.car.wz = police.car.startWz + (police.car.targetWz - police.car.startWz) * decelE;
+        police.car.mesh.position.z = police.car.wz;
+        G.speed = police.car.busStartSpeed * (1 - decelE);
+        if (police.timer <= 0) {
+          G.speed = 0;
+          police.car.wz = police.car.targetWz;
+          police.car.mesh.position.z = police.car.targetWz;
+          police.phase = 'block';
+          police.timer = 0.9;
+        }
+      }
+
+      if (police.phase === 'block') {
+        police.timer -= dt;
+        if (police.timer <= 0) {
+          police.phase = 'arrest';
+          var pcX = ROAD_W / 4;
+          var pcZ = police.car.wz;
+          [-1.2, 1.2].forEach(function(xOff) {
+            var poff = makePoliceOfficer();
+            poff.position.set(pcX + xOff, 0, pcZ + 1.5);
+            scene.add(poff);
+            police.officers.push({ mesh: poff, tx: G.px, tz: G.pz - 4, done: false });
+          });
+          var drv = makeBusDriver();
+          drv.position.set(G.px + 2.0, 0, G.pz - 1.5);
+          drv.rotation.y = Math.PI;
+          scene.add(drv);
+          police.driver = { mesh: drv, tx: pcX, tz: pcZ + 1.5, done: false };
+        }
+      }
+
+      if (police.phase === 'arrest') {
+        var allArrested = true;
+        police.officers.forEach(function(o) {
+          if (!o.done) {
+            allArrested = false;
+            var odx = o.tx - o.mesh.position.x;
+            var odz = o.tz - o.mesh.position.z;
+            var od = Math.sqrt(odx * odx + odz * odz);
+            if (od < 0.5) { o.done = true; }
+            else {
+              o.mesh.position.x += (odx / od) * 1.2 * dt;
+              o.mesh.position.z += (odz / od) * 1.2 * dt;
+              o.mesh.rotation.y = Math.atan2(odx, odz);
+            }
+          }
+        });
+        if (police.driver && !police.driver.done) {
+          allArrested = false;
+          var ddx = police.driver.tx - police.driver.mesh.position.x;
+          var ddz = police.driver.tz - police.driver.mesh.position.z;
+          var ddd = Math.sqrt(ddx * ddx + ddz * ddz);
+          if (ddd < 0.5) { police.driver.done = true; }
+          else {
+            police.driver.mesh.position.x += (ddx / ddd) * 1.2 * dt;
+            police.driver.mesh.position.z += (ddz / ddd) * 1.2 * dt;
+            police.driver.mesh.rotation.y = Math.atan2(ddx, ddz);
+          }
+        }
+        if (allArrested && (!police.driver || police.driver.done)) {
+          police.officers.forEach(function(o) { scene.remove(o.mesh); });
+          police.officers = [];
+          if (police.driver) { scene.remove(police.driver.mesh); police.driver = null; }
+          police.car.mesh.rotation.y = 0; // face forward (-Z) to drive away
+          police.phase = 'leave';
+          police.car.speed = 0;
+        }
+      }
+
+      if (police.phase === 'leave') {
+        police.car.speed = Math.min(police.car.speed + 3 * dt, 2.5);
+        police.car.wz -= police.car.speed;
+        police.car.mesh.position.z = police.car.wz;
+        if (police.car.wz < G.pz - 280) {
+          scene.remove(police.car.mesh);
+          police.car = null;
+          police.phase = 'idle';
+          policeViolations = 0;
+          pullOver.active = false;
+          pullOver.parked = false;
+        }
+      }
+    }
+
+    // Boarding: detect when bus is nearly stopped near a stop with waiting passengers
+    if (Math.abs(G.speed) < 0.15) {
+      activeStops.forEach(function(stop) {
+        var dx = G.px - stop.worldX;
+        var dz = G.pz - stop.worldZ;
+        if (Math.sqrt(dx * dx + dz * dz) < 9) {
+          stop.passengers.forEach(function(p) {
+            if (p.state === 'waiting') p.state = 'boarding';
+          });
+        }
+      });
+    }
+
+    // Animate disembarking passengers walking to sidewalk
+    exitingPassengers = exitingPassengers.filter(function(ep) {
+      var dx = ep.targetX - ep.mesh.position.x;
+      if (dx <= 0.25) { scene.remove(ep.mesh); return false; }
+      ep.mesh.position.x += Math.min(dx, 1.5 * dt);
+      return true;
+    });
+
+    // Animate boarding passengers walking to bus
+    activeStops.forEach(function(stop) {
+      stop.passengers.forEach(function(p) {
+        if (p.state === 'boarding') {
+          var dx = G.px - p.mesh.position.x;
+          var dz = G.pz - p.mesh.position.z;
+          var d = Math.sqrt(dx * dx + dz * dz);
+          if (d < 0.7) {
+            p.state = 'boarded';
+            scene.remove(p.mesh);
+          } else {
+            var mv = 2.5 * dt;
+            p.mesh.position.x += (dx / d) * mv;
+            p.mesh.position.z += (dz / d) * mv;
+            p.mesh.rotation.y = Math.atan2(dx, dz);
+          }
+        }
+      });
+    });
 
     // Bus
     bus.position.set(G.px, 0, G.pz);
@@ -591,6 +1266,28 @@ function initGame() {
         t.mesh.position.x = 0;
         spawnScenery(t);
       }
+    });
+
+    // ── NPC oncoming vehicles ──
+    npcSpawnTimer -= dt;
+    if (npcSpawnTimer <= 0) {
+      var npcTypes = ['car','car','car','car','bus','bus','dump','truck','coach'];
+      var npcType = npcTypes[Math.floor(Math.random() * npcTypes.length)];
+      var npcRoute = (npcType === 'bus') ? pick(npcRoutes) : null;
+      var npcMesh = makeNPCVehicle(npcType, npcRoute);
+      var npcLaneX = Math.random() < 0.5 ? -(ROAD_W * 3 / 8) : -(ROAD_W / 8);
+      var spawnZ = G.pz - rand(160, 380);
+      npcMesh.position.set(npcLaneX, 0, spawnZ);
+      npcMesh.rotation.y = Math.PI;
+      scene.add(npcMesh);
+      npcVehicles.push({ mesh: npcMesh, speed: rand(0.65, 1.5), wz: spawnZ });
+      npcSpawnTimer = rand(1.5, 3.5);
+    }
+    npcVehicles = npcVehicles.filter(function(npc) {
+      npc.wz += npc.speed;
+      npc.mesh.position.z = npc.wz;
+      if (npc.wz > G.pz + 130) { scene.remove(npc.mesh); return false; }
+      return true;
     });
 
     // ── Fork ──

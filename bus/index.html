@@ -351,6 +351,10 @@ document.getElementById('goBtn').addEventListener('click', () => {
   window.open('city.html', '_blank');
 });
 document.getElementById('driveBtn').addEventListener('click', () => {
+  const routeBuses = buses.filter(b => b.route && b.route.trim());
+  if (routeBuses.length > 0) {
+    localStorage.setItem('dispatchBuses', JSON.stringify(routeBuses));
+  }
   window.open('driver.html', '_blank');
 });
 
