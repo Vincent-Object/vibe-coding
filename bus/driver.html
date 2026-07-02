@@ -164,6 +164,11 @@ body {
   box-shadow: 0 6px 30px rgba(33,150,243,0.5);
   letter-spacing: 2px;
 }
+.hud-ramp {
+  top: 28%;
+  background: linear-gradient(135deg,rgba(33,150,243,0.92),rgba(0,188,212,0.92));
+  box-shadow: 0 4px 24px rgba(33,150,243,0.55);
+}
 @keyframes fp {
   from { opacity: .85; transform: translateX(-50%) scale(.97); }
   to { opacity: 1; transform: translateX(-50%) scale(1.04); }
@@ -183,6 +188,7 @@ body {
     <div><span class="value" id="hudDistVal">0</span><span class="unit">m</span></div>
   </div>
   <div class="hud-fork" id="hudFork">⚠️ 前方分叉路口！</div>
+  <div class="hud-fork hud-ramp" id="hudRamp">🌉 按 ➡ 开上高架桥！</div>
   <div class="touch-controls" id="touchControls">
     <div class="touch-btn touch-btn-gas" id="btnGas">▲</div>
     <div class="touch-row">
@@ -196,7 +202,8 @@ body {
     <div class="instructions">
       <b style="color:#81D4FA">⬆ W</b> 加速 &nbsp;&nbsp; <b style="color:#EF9A9A">⬇ S</b> 刹车<br>
       <b style="color:#A5D6A7">⬅ A</b> 左转 &nbsp;&nbsp; <b style="color:#FFE082">➡ D</b> 右转<br>
-      遇到路口选择方向！触屏可用左下角按钮
+      遇到路口选择方向！触屏可用左下角按钮<br>
+      <b style="color:#4FC3F7">🌉 看到右边的高架桥入口，按 ➡ 就能开上去看风景！</b>
     </div>
     <button class="start-btn" id="startDriveBtn">出发 🚌</button>
   </div>
@@ -211,8 +218,32 @@ var SIDEWALK_W = 3;
 var TILE_LEN = 12;
 var POOL = 60;
 
+/* ═══ 立交桥/高架桥 参数 ═══ */
+var DECK_H = 8.0;          // 桥面高度
+var DECK_W = 9;            // 桥面宽度（巡航段）
+var RAMP_W = 6;            // 匝道宽度
+var RAMP_LEN = 46;         // 上/下匝道长度（沿 Z）
+var CRUISE_LEN = 150;      // 高架巡航段长度
+var ENTRY_X = ROAD_W / 2;  // 匝道入口在道路右侧
+
 function rand(a, b) { return a + Math.random() * (b - a); }
 function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
+function smooth(t) { return t < 0 ? 0 : t > 1 ? 1 : t * t * (3 - 2 * t); }
+
+/* 立交桥中心线高度（公交车应处的 y）。z 沿行驶方向递减。 */
+function deckHeight(o, z) {
+  if (z > o.zStart || z < o.zEnd) return 0;
+  if (z > o.zClimbEnd) { var t = (o.zStart - z) / RAMP_LEN; return DECK_H * t; }
+  if (z > o.zCruiseEnd) return DECK_H;
+  var t2 = (o.zCruiseEnd - z) / RAMP_LEN; return DECK_H * (1 - t2);
+}
+/* 立交桥中心线横向位置：入口从右侧匝道平滑汇入桥面中央，出口再平滑回到右侧。 */
+function deckX(o, z) {
+  if (z > o.zStart || z < o.zEnd) return ENTRY_X;
+  if (z > o.zClimbEnd) { var t = (o.zStart - z) / RAMP_LEN; return ENTRY_X * (1 - smooth(t)); }
+  if (z > o.zCruiseEnd) return 0;
+  var t2 = (o.zCruiseEnd - z) / RAMP_LEN; return ENTRY_X * smooth(t2);
+}
 
 // Helper: create mesh and set position (Object.assign can't overwrite .position in r128)
 function mp(mesh, x, y, z) { mesh.position.set(x, y, z); return mesh; }
@@ -678,6 +709,86 @@ function initGame() {
   var dashMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
   var edgeMat = new THREE.MeshBasicMaterial({ color: 0xFFD600 });
 
+  // ── 立交桥/高架桥 builder ──
+  var ovDeckMat = new THREE.MeshLambertMaterial({ color: 0x455A64 });
+  var ovConcreteMat = new THREE.MeshLambertMaterial({ color: 0xB0BEC5 });
+  var ovRailMat = new THREE.MeshLambertMaterial({ color: 0xCFD8DC });
+  var ovArrowMat = new THREE.MeshBasicMaterial({ color: 0x4CAF50 });
+
+  function buildOverpass(zStart) {
+    var o = { zStart: zStart };
+    o.zClimbEnd = zStart - RAMP_LEN;
+    o.zCruiseEnd = o.zClimbEnd - CRUISE_LEN;
+    o.zEnd = o.zCruiseEnd - RAMP_LEN;
+    var g = new THREE.Group();
+
+    // 匝道（分段跟随 deckX/deckHeight 的曲线）
+    function ramp(zA, zB) {
+      var SEG = 12;
+      for (var i = 0; i < SEG; i++) {
+        var z0 = zA + (zB - zA) * (i / SEG);
+        var z1 = zA + (zB - zA) * ((i + 1) / SEG);
+        var x0 = deckX(o, z0), x1 = deckX(o, z1);
+        var y0 = deckHeight(o, z0), y1 = deckHeight(o, z1);
+        var xm = (x0 + x1) / 2, ym = (y0 + y1) / 2, zm = (z0 + z1) / 2;
+        var dz = z1 - z0, dy = y1 - y0;
+        var L = Math.sqrt(dz * dz + dy * dy) + 0.5;
+        var ang = Math.atan2(-dy, dz);
+        var deck = new THREE.Mesh(new THREE.BoxGeometry(RAMP_W, 0.4, L), ovDeckMat);
+        deck.position.set(xm, ym - 0.2, zm); deck.rotation.x = ang;
+        deck.receiveShadow = true; g.add(deck);
+        [-1, 1].forEach(function(s) {
+          var rail = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.0, L), ovRailMat);
+          rail.position.set(xm + s * (RAMP_W / 2 - 0.15), ym + 0.5, zm);
+          rail.rotation.x = ang; g.add(rail);
+        });
+      }
+    }
+    ramp(zStart, o.zClimbEnd);       // 上匝道：右侧 → 桥面中央
+    ramp(o.zCruiseEnd, o.zEnd);      // 下匝道：桥面中央 → 右侧
+
+    // 巡航桥面（水平）
+    var cruiseLen = o.zClimbEnd - o.zCruiseEnd;
+    var deckMid = (o.zClimbEnd + o.zCruiseEnd) / 2;
+    var cruise = new THREE.Mesh(new THREE.BoxGeometry(DECK_W, 0.4, cruiseLen), ovDeckMat);
+    cruise.position.set(0, DECK_H - 0.2, deckMid); cruise.receiveShadow = true; g.add(cruise);
+    [-1, 1].forEach(function(s) {
+      var rail = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.1, cruiseLen), ovRailMat);
+      rail.position.set(s * (DECK_W / 2 - 0.15), DECK_H + 0.55, deckMid); g.add(rail);
+    });
+
+    // 中央桥墩
+    for (var pz = o.zCruiseEnd + 9; pz < o.zClimbEnd; pz += 18) {
+      var pillar = new THREE.Mesh(new THREE.BoxGeometry(1.6, DECK_H, 1.6), ovConcreteMat);
+      pillar.position.set(0, DECK_H / 2 - 0.3, pz); pillar.castShadow = true; g.add(pillar);
+      var cap = new THREE.Mesh(new THREE.BoxGeometry(DECK_W * 0.8, 0.6, 2.2), ovConcreteMat);
+      cap.position.set(0, DECK_H - 0.6, pz); g.add(cap);
+    }
+
+    // 入口指示牌（道路右侧）
+    var signX = ROAD_W / 2 + SIDEWALK_W + 1.2;
+    var post = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 7, 8), ovConcreteMat);
+    post.position.set(signX, 3.5, zStart + 4); g.add(post);
+    var board = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.8, 3.4), new THREE.MeshLambertMaterial({ color: 0x1565C0 }));
+    board.position.set(signX, 6.0, zStart + 4); g.add(board);
+    var arrUp = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.0, 0.55), ovArrowMat);
+    arrUp.position.set(signX - 0.13, 6.1, zStart + 4); g.add(arrUp);
+    var arrHead = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.55, 1.1), ovArrowMat);
+    arrHead.position.set(signX - 0.13, 6.7, zStart + 4); g.add(arrHead);
+
+    // 上匝道地面绿色箭头
+    for (var az = zStart - 3; az > zStart - RAMP_LEN + 5; az -= 7) {
+      var arr = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.05, 2.6), ovArrowMat);
+      var ay = deckHeight(o, az), ax = deckX(o, az);
+      arr.position.set(ax, ay + 0.25, az);
+      arr.rotation.x = Math.atan2(-(deckHeight(o, az - 2) - deckHeight(o, az + 2)), 4);
+      g.add(arr);
+    }
+
+    o.group = g;
+    return o;
+  }
+
   // Bus stop & boarding state
   var lastBusStopZ = 0;
   var activeStops = [];
@@ -852,6 +963,10 @@ function initGame() {
   // Fork visuals
   var forkGroup = null, forkActive = false, forkZ = 0, nextForkDist = 200;
 
+  // 立交桥状态机
+  var overpass = { phase: 'none', cur: null, group: null };
+  var nextOverpassDist = 240; // 第一座桥较早出现，让小朋友尽快看到
+
   function spawnFork(z) {
     var fg = new THREE.Group();
     var bAngle = 0.4;
@@ -907,7 +1022,7 @@ function initGame() {
   }
 
   // ── Game State ──
-  var G = { px: ROAD_W / 4, pz: 0, heading: 0, speed: 0, dist: 0, keys: {},
+  var G = { px: ROAD_W / 4, pz: 0, py: 0, heading: 0, speed: 0, dist: 0, keys: {},
     camPos: new THREE.Vector3(ROAD_W / 4, 9, 18) };
 
   // Touch state
@@ -949,6 +1064,7 @@ function initGame() {
   var hudSpeedEl = document.getElementById('hudSpeedVal');
   var hudDistEl = document.getElementById('hudDistVal');
   var hudForkEl = document.getElementById('hudFork');
+  var hudRampEl = document.getElementById('hudRamp');
   var hudSpeedBox = document.getElementById('hudSpeed');
   var hudDistBox = document.getElementById('hudDist');
   var touchControlsEl = document.getElementById('touchControls');
@@ -972,6 +1088,33 @@ function initGame() {
     var gasOn = G.keys['ArrowUp'] || G.keys['w'] || touch.gas;
     var brakeOn = G.keys['ArrowDown'] || G.keys['s'] || touch.brake;
     var controlsLocked = police.phase === 'decel' || police.phase === 'block' || police.phase === 'arrest' || police.phase === 'leave';
+
+    // ── 立交桥：生成 / 上桥 / 下桥 状态机 ──
+    nextOverpassDist -= Math.abs(G.speed) * dt * 30;
+    if (nextOverpassDist <= 0 && overpass.phase === 'none' && police.phase === 'idle') {
+      var ov = buildOverpass(G.pz - 70);
+      overpass.cur = ov; overpass.group = ov.group; overpass.phase = 'approaching';
+      scene.add(ov.group);
+    }
+    var rightPressed = G.keys['ArrowRight'] || G.keys['d'] || touch.steer === -1;
+    if (overpass.phase === 'approaching') {
+      var diff = G.pz - overpass.cur.zStart; // >0：公交车还在匝道入口之前
+      if (diff < 35 && diff > -8 && rightPressed) {
+        overpass.phase = 'riding';
+      } else if (G.pz < overpass.cur.zStart - 10) {
+        overpass.phase = 'missed'; // 没按右键，错过上桥，继续走地面主路
+      }
+    }
+    if (overpass.phase === 'riding' && G.pz < overpass.cur.zEnd) {
+      overpass.phase = 'done';
+    }
+    if ((overpass.phase === 'missed' || overpass.phase === 'done') &&
+        overpass.cur && G.pz < overpass.cur.zEnd - 45) {
+      scene.remove(overpass.group);
+      overpass.group = null; overpass.cur = null; overpass.phase = 'none';
+      nextOverpassDist = rand(300, 600);
+    }
+    var onOverpass = overpass.phase === 'riding';
 
     // Traffic lights: update timers, visuals, countdown canvas, auto-brake target
     var autoSpeedTarget = 1.0;
@@ -999,7 +1142,7 @@ function initGame() {
         tl.tex.needsUpdate = true;
       }
       // Auto-brake: slow bus smoothly when red or yellow light is ahead
-      if (!gasOn && !pullOver.active && !pullOver.parked) {
+      if (!gasOn && !pullOver.active && !pullOver.parked && !onOverpass) {
         if (tl.state === 'red' || tl.state === 'yellow') {
           var dist = G.pz - tl.worldZ; // positive = light is ahead of bus
           if (dist > 2 && dist < 80) {
@@ -1015,6 +1158,11 @@ function initGame() {
       } else {
         G.speed = 0;
       }
+    } else if (onOverpass) {
+      // 上桥后自动巡航，油门可加速，刹车减速但不停车（保证安全开下桥）
+      if (gasOn) G.speed = Math.min(G.speed + 3.5 * dt, 2.6);
+      else if (brakeOn) G.speed = Math.max(G.speed - 2.5 * dt, 0.5);
+      else G.speed += (1.5 - G.speed) * dt * 1.5;
     } else if (gasOn) {
       G.speed = Math.min(G.speed + 3.5 * dt, 2.24);
       pullOver.active = false;
@@ -1037,14 +1185,14 @@ function initGame() {
 
     // Steer (disabled while pulling over or controls locked)
     var st = 0;
-    if (!controlsLocked && !pullOver.active) {
+    if (!controlsLocked && !pullOver.active && !onOverpass) {
       if (G.keys['ArrowLeft'] || G.keys['a']) st = 1;
       if (G.keys['ArrowRight'] || G.keys['d']) st = -1;
       if (touch.steer) st = touch.steer;
       G.heading += st * 2.2 * dt * Math.min(Math.abs(G.speed), 1.5);
     }
     // Auto-center in right lane when not manually steering
-    if (!controlsLocked && !pullOver.active && !pullOver.parked && st === 0 && G.speed > 0.1) {
+    if (!controlsLocked && !pullOver.active && !pullOver.parked && !onOverpass && st === 0 && G.speed > 0.1) {
       G.px += (ROAD_W / 4 - G.px) * dt * 0.6;
     }
 
@@ -1073,6 +1221,16 @@ function initGame() {
       G.px -= Math.sin(G.heading) * G.speed;
       G.pz -= Math.cos(G.heading) * G.speed;
       G.dist += Math.abs(G.speed) * dt * 30;
+    }
+
+    // ── 立交桥：沿桥面路径调整横向与高度 ──
+    if (onOverpass) {
+      var o = overpass.cur;
+      G.px += (deckX(o, G.pz) - G.px) * Math.min(1, dt * 4);
+      G.py = deckHeight(o, G.pz);
+      G.heading += (0 - G.heading) * Math.min(1, dt * 3); // 在桥上保持车身笔直
+    } else {
+      G.py += (0 - G.py) * Math.min(1, dt * 4);
     }
 
     // ── Police violation detection ──
@@ -1246,8 +1404,15 @@ function initGame() {
     });
 
     // Bus
-    bus.position.set(G.px, 0, G.pz);
+    bus.position.set(G.px, G.py, G.pz);
     bus.rotation.y = G.heading;
+    // 上下匝道时车身俯仰
+    if (onOverpass) {
+      var oc = overpass.cur;
+      bus.rotation.x = Math.atan2(deckHeight(oc, G.pz - 1) - deckHeight(oc, G.pz + 1), 2);
+    } else {
+      bus.rotation.x += (0 - bus.rotation.x) * Math.min(1, dt * 4);
+    }
     bus.userData.wheels.forEach(function(w) { w.rotation.x += G.speed * 0.4; });
 
     // ── Recycle tiles ──
@@ -1293,7 +1458,7 @@ function initGame() {
     // ── Fork ──
     nextForkDist -= Math.abs(G.speed) * dt * 30;
     var nearFork = false;
-    if (nextForkDist <= 0 && !forkActive) {
+    if (nextForkDist <= 0 && !forkActive && overpass.phase === 'none') {
       forkZ = G.pz - 80;
       forkGroup = spawnFork(forkZ);
       forkActive = true;
@@ -1309,13 +1474,14 @@ function initGame() {
 
     // Camera
     var cd = 16, ch = 8;
+    if (G.py > 0.3) { cd = 18; ch = 11; } // 上桥后镜头抬高拉远，俯瞰两边楼房风景
     var ideal = new THREE.Vector3(
-      G.px + Math.sin(G.heading) * cd, ch,
+      G.px + Math.sin(G.heading) * cd, ch + G.py,
       G.pz + Math.cos(G.heading) * cd
     );
     G.camPos.lerp(ideal, 0.065);
     camera.position.copy(G.camPos);
-    camera.lookAt(G.px - Math.sin(G.heading) * 14, 2, G.pz - Math.cos(G.heading) * 14);
+    camera.lookAt(G.px - Math.sin(G.heading) * 14, 2 + G.py, G.pz - Math.cos(G.heading) * 14);
 
     // Follow ground + sun
     ground.position.x = G.px; ground.position.z = G.pz;
@@ -1327,6 +1493,13 @@ function initGame() {
     hudSpeedEl.textContent = Math.abs(Math.round(G.speed * 32));
     hudDistEl.textContent = Math.round(G.dist);
     hudForkEl.style.display = nearFork ? 'block' : 'none';
+    // 接近立交桥入口时提示按右键上桥
+    var showRampHint = false;
+    if (overpass.phase === 'approaching') {
+      var rd = G.pz - overpass.cur.zStart;
+      showRampHint = rd > -8 && rd < 55;
+    }
+    hudRampEl.style.display = showRampHint ? 'block' : 'none';
 
     renderer.render(scene, camera);
   }
